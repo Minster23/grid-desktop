@@ -14,6 +14,7 @@ import { clearMusicPlaybackState } from './widgets/music/playbackState.js';
 import { clearMusicPolls } from './widgets/music/index.js';
 import { screenTimeEngine } from './utils/screenTimeEngine.js';
 import { enableDashContextMenu, disableDashContextMenu } from './utils/dashIntegration.js';
+import { clearStorageEngine } from './utils/storageEngine.js';
 
 export default class GridgetsExtension extends Extension {
     enable() {
@@ -122,6 +123,7 @@ export default class GridgetsExtension extends Extension {
         clearMusicPlaybackState();
         clearMusicPolls();
         clearEnsuredDirectories();
+        clearStorageEngine();
     }
 
     _spawnGrid(monitorIndex) {

@@ -106,9 +106,7 @@ export function syncDesktopIcons(settings, forceOrganize = false) {
                     });
                 }
             });
-        } catch (e) {
-            console.error('[grid-desktop] Nem sikerült lekérni a csatolt meghajtókat:', e);
-        }
+        } catch (e) {}
     }
 
     try {
@@ -150,9 +148,7 @@ export function syncDesktopIcons(settings, forceOrganize = false) {
                         }
                         isDesktopEntry = true;
                     }
-                } catch (err) {
-                    console.warn('[grid-desktop] Nem sikerült beolvasni a desktop bejegyzést:', err);
-                }
+                } catch (err) {}
             }
 
             currentFiles.push({
@@ -164,7 +160,6 @@ export function syncDesktopIcons(settings, forceOrganize = false) {
             });
         }
     } catch (e) {
-        console.error('[grid-desktop] Nem sikerült beolvasni az Asztal mappát:', e);
         return false;
     }
 
@@ -410,9 +405,7 @@ export function monitorDesktop(settings, callback) {
                 return GLib.SOURCE_REMOVE;
             });
         });
-    } catch (e) {
-        console.warn('Gridgets: Nem sikerült az asztal mappa monitorozása:', e);
-    }
+    } catch (e) {}
 
     // 2. Kuka állapotváltozás figyelése (ürítés vagy új szemét)
     try {
@@ -430,9 +423,7 @@ export function monitorDesktop(settings, callback) {
                 return GLib.SOURCE_REMOVE;
             });
         });
-    } catch (e) {
-        console.warn('Gridgets: Nem sikerült a kuka monitorozása:', e);
-    }
+    } catch (e) {}
 
     // 3. Kötetek és felcsatolt meghajtók figyelése
     try {
@@ -490,9 +481,7 @@ export function monitorDesktop(settings, callback) {
                 }
             }
         });
-    } catch (e) {
-        console.warn('Gridgets: Nem sikerült a login1 alvásfigyelő bekötése:', e);
-    }
+    } catch (e) {}
 
 }
 

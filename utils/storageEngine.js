@@ -224,6 +224,27 @@ class StorageEngine {
             }
         });
     }
+    destroy() {
+        this._stopTimer();
+
+        if (this._volumeMonitor) {
+            if (this._mountAddedId) {
+                this._volumeMonitor.disconnect(this._mountAddedId);
+                this._mountAddedId = null;
+            }
+            if (this._mountRemovedId) {
+                this._volumeMonitor.disconnect(this._mountRemovedId);
+                this._mountRemovedId = null;
+            }
+            this._volumeMonitor = null;
+        }
+
+        this._subscribers.clear();
+        this._cache.clear();
+    }
 }
 
 export const storageEngine = new StorageEngine();
+export function clearStorageEngine() {
+    storageEngine.destroy();
+}
