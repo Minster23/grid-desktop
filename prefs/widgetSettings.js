@@ -100,11 +100,34 @@ export function buildStandardSettings(grid, rowIdx, widget, settings, saveHandle
         rowIdx++;
 
         // Betűtípus
-        const fontLabel = new Gtk.Label({ label: 'Font Family:', xalign: 0, hexpand: true });
+        const isNotesWidget = widget.type === 'notes';
+        const fontLabel = new Gtk.Label({ 
+            label: isNotesWidget ? 'Font & Size:' : 'Font Family:', 
+            xalign: 0, 
+            hexpand: true 
+        });
         fontBtn = new Gtk.FontButton({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-        const currentFont = widget.fontFamily || settings.get_string('global-font-family');
-        initialFontDescription = createNormalizedFontDescription(currentFont).to_string();
+        
+        fontBtn.set_use_size(isNotesWidget);
+        if (Gtk.FontChooserLevel) {
+            if (isNotesWidget) {
+                // Notes esetén: Család + Méret
+                fontBtn.set_level(Gtk.FontChooserLevel.FAMILY | Gtk.FontChooserLevel.SIZE);
+            } else {
+                // Minden egyéb widgetnél: KIZÁRÓLAG Család (a méretválasztó eltűnik az ablakból!)
+                fontBtn.set_level(Gtk.FontChooserLevel.FAMILY);
+            }
+        }
+
+        const currentFamily = widget.fontFamily || settings.get_string('global-font-family') || DEFAULT_FONT_FAMILY || 'Cantarell';
+        const fontDesc = createNormalizedFontDescription(currentFamily);
+        if (isNotesWidget) {
+            const currentSize = widget.fontSize || 14;
+            fontDesc.set_size(Math.round(currentSize * Pango.SCALE));
+        }
+        initialFontDescription = fontDesc.to_string();
         fontBtn.set_font(initialFontDescription);
+
         grid.attach(fontLabel, 0, rowIdx, 1, 1);
         grid.attach(fontBtn, 1, rowIdx, 1, 1);
         rowIdx++;
@@ -167,11 +190,22 @@ export function buildStandardSettings(grid, rowIdx, widget, settings, saveHandle
             target.bgOpacity = Math.round(bgOpacityScale.get_value());
             target.fgColor = fgColorBtn.get_rgba().to_string();
 
-            if (fontBtn.get_font() !== initialFontDescription) {
-                const desc = Pango.FontDescription.from_string(fontBtn.get_font());
+            const chosenFontStr = fontBtn.get_font();
+            if (chosenFontStr) {
+                const desc = Pango.FontDescription.from_string(chosenFontStr);
                 const family = desc.get_family();
                 if (family) {
-                    target.fontFamily = `'${family}', sans-serif`;
+                    target.fontFamily = family;
+                }
+                
+                // Méretet KIZÁRÓLAG a Notes widget menthet:
+                if (widget.type === 'notes') {
+                    const size = desc.get_size();
+                    if (size > 0) {
+                        target.fontSize = Math.round(desc.get_size_is_absolute() ? size : size / Pango.SCALE);
+                    }
+                } else {
+                    delete target.fontSize;
                 }
             }
         }
@@ -737,8 +771,30 @@ export function buildWeatherCardsSettings(grid, rowIdx, widget, saveHandlers) {
 
     // Metrika választó DropDown (mint a System Info-nál)
     const metricLabel = new Gtk.Label({ label: 'Weather Metric:', xalign: 0, hexpand: true });
-    const metrics = ['uv', 'humidity', 'aqi', 'wind'];
-    const metricNames = ['UV Index', 'Humidity', 'Air Quality (AQI)', 'Wind Speed'];
+    const metrics = [
+        'uv',
+        'humidity',
+        'aqi',
+        'wind',
+        'pressure',
+        'feels_like',
+        'gusts',
+        'dew_point',
+        'cloud',
+        'precipitation',
+    ];
+    const metricNames = [
+        'UV Index',
+        'Humidity',
+        'Air Quality (AQI)',
+        'Wind Speed',
+        'Pressure',
+        'Feels Like',
+        'Wind Gusts',
+        'Dew Point',
+        'Cloud Cover',
+        'Precipitation',
+    ];
 
     const metricCombo = new Gtk.DropDown({
         model: Gtk.StringList.new(metricNames),

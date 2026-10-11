@@ -55,16 +55,33 @@ export function buildCardsLayout(layout, widgetData, extensionPath) {
 
     let iconName = 'weather-clear-symbolic';
     let defaultLabel = 'UV INDEX';
-
     if (metric === 'humidity') {
         iconName = 'weather-showers-symbolic';
-        defaultLabel = 'HUMIDITY';
+        defaultLabel = 'Humidity';
     } else if (metric === 'aqi') {
         iconName = 'emblem-default-symbolic';
-        defaultLabel = 'AIR QUALITY';
+        defaultLabel = 'Air Quality (AQI)';
     } else if (metric === 'wind') {
         iconName = 'weather-windy-symbolic';
-        defaultLabel = 'WIND SPEED';
+        defaultLabel = 'Wind Speed';
+    } else if (metric === 'pressure') {
+        iconName = 'weather-clear-symbolic';
+        defaultLabel = 'Pressure';
+    } else if (metric === 'feels_like') {
+        iconName = 'weather-clear-symbolic';
+        defaultLabel = 'Feels Like';
+    } else if (metric === 'gusts') {
+        iconName = 'weather-windy-symbolic';
+        defaultLabel = 'Wind Gusts';
+    } else if (metric === 'dew_point') {
+        iconName = 'weather-showers-symbolic';
+        defaultLabel = 'Dew Point';
+    } else if (metric === 'cloud') {
+        iconName = 'weather-overcast-symbolic';
+        defaultLabel = 'Cloud Cover';
+    } else if (metric === 'precipitation') {
+        iconName = 'weather-showers-scattered-symbolic';
+        defaultLabel = 'Precipitation';
     }
 
     const isDarkSurface = isDarkBackgroundColor(resolveWidgetBackgroundColor(widgetData));
@@ -173,11 +190,12 @@ export function buildCardsLayout(layout, widgetData, extensionPath) {
         layout.add_child(chartCard);
     }
 
-    uiElements.updateCards = (json) => {
+    uiElements.updateCards = (json, useFahrenheit = false) => {
         const cur = json.current;
         if (!cur) return;
 
         const hum = cur.humidity ?? cur.relative_humidity_2m;
+        const tempUnit = useFahrenheit ? '°F' : '°C';
 
         if (metric === 'uv' && cur.uv_index !== null && cur.uv_index !== undefined) {
             valLabel.text = `${cur.uv_index}`;
@@ -187,6 +205,20 @@ export function buildCardsLayout(layout, widgetData, extensionPath) {
             valLabel.text = `${cur.aqi}`;
         } else if (metric === 'wind' && cur.windspeed !== null && cur.windspeed !== undefined) {
             valLabel.text = `${Math.round(cur.windspeed)} km/h`;
+        } else if (metric === 'pressure' && cur.pressure !== null && cur.pressure !== undefined) {
+            valLabel.text = `${Math.round(cur.pressure)} hPa`;
+        } else if (metric === 'feels_like') {
+            const val = useFahrenheit ? cur.feels_like_f : cur.feels_like_c;
+            if (val !== null && val !== undefined) valLabel.text = `${Math.round(val)}${tempUnit}`;
+        } else if (metric === 'gusts' && cur.gusts !== null && cur.gusts !== undefined) {
+            valLabel.text = `${Math.round(cur.gusts)} km/h`;
+        } else if (metric === 'dew_point') {
+            const val = useFahrenheit ? cur.dew_point_f : cur.dew_point_c;
+            if (val !== null && val !== undefined) valLabel.text = `${Math.round(val)}${tempUnit}`;
+        } else if (metric === 'cloud' && cur.cloud !== null && cur.cloud !== undefined) {
+            valLabel.text = `${cur.cloud}%`;
+        } else if (metric === 'precipitation' && cur.precipitation !== null && cur.precipitation !== undefined) {
+            valLabel.text = `${cur.precipitation} mm`;
         }
 
         // A saját metrika trendjének kirajzolása:

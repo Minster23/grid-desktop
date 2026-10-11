@@ -10,12 +10,17 @@ const DEFAULT_FONT_SIZE_PT = 11;
 
 // Applies DEFAULT_FONT_SIZE_PT when the input carries no explicit size.
 export function createNormalizedFontDescription(currentFont) {
-    const cleaned = (currentFont || '').replace(/'/g, '').replace(/, sans-serif/i, '').trim();
-    const fontDesc = cleaned
-        ? Pango.FontDescription.from_string(cleaned)
-        : new Pango.FontDescription();
-    if (fontDesc.get_size() === 0)
+    let cleaned = (currentFont || '').replace(/['"]/g, '').replace(/, sans-serif/i, '').trim();
+    if (!cleaned) {
+        cleaned = 'Cantarell';
+    }
+    const fontDesc = Pango.FontDescription.from_string(cleaned);
+    if (!fontDesc.get_family()) {
+        fontDesc.set_family('Cantarell');
+    }
+    if (fontDesc.get_size() === 0) {
         fontDesc.set_size(DEFAULT_FONT_SIZE_PT * Pango.SCALE);
+    }
     return fontDesc;
 }
 
@@ -105,20 +110,53 @@ export function buildGlobalAestheticsGroup(settings) {
         subtitle: 'Choose the default font used across all widgets.',
     });
 
-    const fontBtn = new Gtk.FontButton({ 
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.CENTER,
-    });
+    const rawFont = settings.get_string('global-font-family') || DEFAULT_FONT_FAMILY || 'Cantarell';
+    const cleanFamily = rawFont.replace(/['"]/g, '').replace(/, sans-serif/i, '').trim() || 'Cantarell';
 
-    const currentFont = settings.get_string('global-font-family') || DEFAULT_FONT_FAMILY;
-    fontBtn.set_font(createNormalizedFontDescription(currentFont).to_string());
-    fontBtn.connect('font-set', () => {
-        const desc = Pango.FontDescription.from_string(fontBtn.get_font());
-        const family = desc.get_family();
-        if (family) {
-            settings.set_string('global-font-family', `'${family}', sans-serif`);
+    let fontBtn;
+
+    // 1. Modern GNOME 48 (GTK 4.10+) felület: Gtk.FontDialogButton
+    if (Gtk.FontDialogButton && Gtk.FontDialog) {
+        const dialog = new Gtk.FontDialog();
+        dialog.set_filter(null);
+        
+        fontBtn = new Gtk.FontDialogButton({
+            dialog: dialog,
+            valign: Gtk.Align.CENTER,
+            halign: Gtk.Align.CENTER,
+            use_size: false,
+            level: Gtk.FontLevel ? Gtk.FontLevel.FAMILY : 0,
+        });
+
+        const fontDesc = Pango.FontDescription.from_string(cleanFamily);
+        fontBtn.set_font_desc(fontDesc);
+
+        fontBtn.connect('notify::font-desc', () => {
+            const desc = fontBtn.get_font_desc();
+            if (desc) {
+                const family = desc.get_family() || 'Cantarell';
+                settings.set_string('global-font-family', family);
+            }
+        });
+    } else {
+        // 2. Fallback régebbi verziókhoz:
+        fontBtn = new Gtk.FontButton({ 
+            valign: Gtk.Align.CENTER,
+            halign: Gtk.Align.CENTER,
+            use_size: false,
+        });
+        if (Gtk.FontChooserLevel) {
+            fontBtn.set_level(Gtk.FontChooserLevel.FAMILY);
         }
-    });
+        const fontDesc = Pango.FontDescription.from_string(`${cleanFamily} 11`);
+        fontBtn.set_font(fontDesc.to_string());
+
+        fontBtn.connect('font-set', () => {
+            const desc = Pango.FontDescription.from_string(fontBtn.get_font());
+            const family = desc.get_family() || 'Cantarell';
+            settings.set_string('global-font-family', family);
+        });
+    }
 
     const fontBox = new Gtk.Box({
         valign: Gtk.Align.CENTER,

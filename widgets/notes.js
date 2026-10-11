@@ -36,8 +36,15 @@ function convertMarkdownToPango(text) {
 }
 
 export function createNotesNode(config, width, height, xPosition, yPosition) {
-    const fontFamily = resolveExplicitFontFamily(config);
-    const fontCss = fontFamily ? `font-family: ${fontFamily}; ` : '';
+    let rawFont = resolveExplicitFontFamily(config) || '';
+
+    const cleanFontFamily = rawFont.replace(/['"]/g, '').split(',')[0].trim();
+    const fontCss = cleanFontFamily ? `font-family: '${cleanFontFamily}'; ` : '';
+
+    const userFontSize = config.fontSize || 14;
+    const baseContentSize = userFontSize;
+    const baseTitleSize = Math.max(12, Math.round(userFontSize * 0.9));
+
     const textColor = resolveWidgetForegroundColor(config);
     const container = createWidgetContainer(config, width, height, xPosition, yPosition);
     container.style += ` border: 1px solid ${cssColorToRgba(textColor, BORDER_ALPHA)};`;
@@ -129,7 +136,7 @@ export function createNotesNode(config, width, height, xPosition, yPosition) {
 
     
     const displayLabel = new Clutter.Text({
-        font_name: fontFamily ? `${fontFamily} 14px` : '14px',
+        font_name: cleanFontFamily ? `${cleanFontFamily} ${baseContentSize}px` : `${baseContentSize}px`,
         editable: false,
         selectable: false,
         reactive: true,
@@ -152,7 +159,7 @@ export function createNotesNode(config, width, height, xPosition, yPosition) {
     });
 
     let textEditor = new Clutter.Text({
-        font_name: fontFamily ? `${fontFamily} 14px` : '14px',
+        font_name: cleanFontFamily ? `${cleanFontFamily} ${baseContentSize}px` : `${baseContentSize}px`,
         editable: true,
         selectable: true,
         reactive: true,
@@ -229,21 +236,21 @@ export function createNotesNode(config, width, height, xPosition, yPosition) {
     container.add_child(contentBox);
 
     function applyScale(scale) {
-        const titleFontSize = Math.max(MIN_FONT_SIZE, Math.round(BASE_TITLE_FONT_SIZE * scale));
-        const contentFontSize = Math.max(MIN_FONT_SIZE, Math.round(BASE_CONTENT_FONT_SIZE * scale));
+        const titleFontSize = Math.max(MIN_FONT_SIZE, Math.round(baseTitleSize * scale));
+        const contentFontSize = Math.max(MIN_FONT_SIZE, Math.round(baseContentSize * scale));
         const iconSize = Math.max(MIN_ICON_SIZE, Math.round(BASE_ICON_SIZE * scale));
 
         titleLabel.set_style(`${fontCss}color: ${textColor}; font-size: ${titleFontSize}px; opacity: ${SECONDARY_OPACITY};`);
         editIcon.set_icon_size(iconSize);
 
-        displayLabel.font_name = `${fontFamily ? `${fontFamily} ` : ''}${contentFontSize}px`;
+        displayLabel.font_name = `${cleanFontFamily ? `${cleanFontFamily} ` : ''}${contentFontSize}px`;
 
         const currentText = textEditor.text;
         const wasEditing = isEditingActive;
         editorContainer.remove_child(textEditor);
         textEditor.destroy();
         const newEditor = new Clutter.Text({
-            font_name: `${fontFamily ? `${fontFamily} ` : ''}${contentFontSize}px`,
+            font_name: `${cleanFontFamily ? `${cleanFontFamily} ` : ''}${contentFontSize}px`,
             editable: true,
             selectable: true,
             reactive: true,
