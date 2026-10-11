@@ -20,6 +20,7 @@ import {
     buildPingSettings,
     buildCryptoTrackerSettings,
     buildHistoryTrackerSettings,
+    buildStorageBarSettings,
 } from './widgetSettings.js';
 
 export function buildWidgetEditPanel(parentWindow, widget, settings, onSavedCallback) {
@@ -96,6 +97,11 @@ export function buildWidgetEditPanel(parentWindow, widget, settings, onSavedCall
             break;
         case 'todayHistory':
             rowIdx = buildHistoryTrackerSettings(grid, rowIdx, widget, saveHandlers);
+            break;
+        case 'storage-bar':
+        case 'storageBar':
+        case 'storage_bar':
+            rowIdx = buildStorageBarSettings(grid, rowIdx, widget, saveHandlers, parentWindow);
             break;
     }
 

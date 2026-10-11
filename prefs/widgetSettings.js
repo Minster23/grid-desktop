@@ -1014,3 +1014,50 @@ export function buildHistoryTrackerSettings(grid, rowIdx, widget, saveHandlers) 
 
     return rowIdx;
 }
+
+
+export function buildStorageBarSettings(grid, rowIdx, widget, saveHandlers, parentWindow) {
+    const pathLabel = new Gtk.Label({ label: 'Storage Path / Partition:', xalign: 0, hexpand: true });
+    const pathBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, hexpand: true });
+    
+    const pathEntry = new Gtk.Entry({
+        text: widget.storagePath || '/',
+        placeholder_text: 'pl. / vagy /home/felhasznalo',
+        hexpand: true,
+    });
+
+    const browseBtn = new Gtk.Button({ label: 'Browse...' });
+    browseBtn.connect('clicked', () => {
+        const fileChooser = new Gtk.FileChooserNative({
+            title: 'Select Folder / Partition',
+            transient_for: parentWindow || null,
+            action: Gtk.FileChooserAction.SELECT_FOLDER,
+            accept_label: 'Select',
+            cancel_label: 'Cancel',
+        });
+
+        fileChooser.connect('response', (dialog, responseId) => {
+            if (responseId === Gtk.ResponseType.ACCEPT) {
+                const folder = dialog.get_file();
+                if (folder) {
+                    pathEntry.set_text(folder.get_path());
+                }
+            }
+            dialog.destroy();
+        });
+        fileChooser.show();
+    });
+
+    pathBox.append(pathEntry);
+    pathBox.append(browseBtn);
+    grid.attach(pathLabel, 0, rowIdx, 1, 1);
+    grid.attach(pathBox, 1, rowIdx, 1, 1);
+    rowIdx++;
+
+    saveHandlers.push((target) => {
+        const customPath = pathEntry.get_text().trim();
+        target.storagePath = customPath || '/';
+    });
+
+    return rowIdx;
+}

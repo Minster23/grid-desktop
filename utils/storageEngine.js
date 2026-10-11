@@ -1,40 +1,64 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-const DEFAULT_REFRESH_INTERVAL_SEC = 900; // 15 perc alapértelmezett frissítés
+const DEFAULT_REFRESH_INTERVAL_SEC = 900; // 15 perc nyugodt háttérciklus
 
 class StorageEngine {
     constructor() {
-        this._subscribers = new Set();
+        this._subscribers = new Map(); // targetPath => Set of callbacks
         this._timerId = null;
         this._isScanning = false;
-        this._cachedData = null;
+        this._cache = new Map(); // targetPath => data
+
+        // GIO Volume Monitor: azonnali esemény, ha meghajtót csatolnak / lecsatolnak!
+        this._volumeMonitor = Gio.VolumeMonitor.get();
+        this._mountAddedId = this._volumeMonitor.connect('mount-added', () => {
+            this.refreshAll();
+        });
+        this._mountRemovedId = this._volumeMonitor.connect('mount-removed', () => {
+            this.refreshAll();
+        });
     }
 
-    subscribe(callback) {
-        this._subscribers.add(callback);
+    subscribe(targetPath = '/', callback) {
+        const normPath = targetPath || '/';
+        if (!this._subscribers.has(normPath)) {
+            this._subscribers.set(normPath, new Set());
+        }
+        const set = this._subscribers.get(normPath);
+        set.add(callback);
 
-        // Ha van már gyorsítótárazott adatunk, azonnal átadjuk
-        if (this._cachedData) {
+        const cached = this._cache.get(normPath);
+        if (cached) {
             try {
-                callback(this._cachedData);
+                callback(cached);
             } catch (e) {
                 console.error(`[StorageEngine] Initial callback error: ${e}`);
             }
         }
 
-        // Első feliratkozó esetén elindítjuk a ciklust
-        if (this._subscribers.size === 1) {
-            this.refresh();
+        if (this._getTotalSubscribersCount() === 1) {
+            this.refreshAll();
             this._startTimer();
+        } else if (!cached) {
+            this.refreshPath(normPath);
         }
 
         return () => {
-            this._subscribers.delete(callback);
-            if (this._subscribers.size === 0) {
+            set.delete(callback);
+            if (set.size === 0) {
+                this._subscribers.delete(normPath);
+            }
+            if (this._getTotalSubscribersCount() === 0) {
                 this._stopTimer();
             }
         };
+    }
+
+    _getTotalSubscribersCount() {
+        let count = 0;
+        for (const set of this._subscribers.values()) count += set.size;
+        return count;
     }
 
     _startTimer() {
@@ -43,7 +67,7 @@ class StorageEngine {
             GLib.PRIORITY_DEFAULT,
             DEFAULT_REFRESH_INTERVAL_SEC,
             () => {
-                this.refresh();
+                this.refreshAll();
                 return GLib.SOURCE_CONTINUE;
             }
         );
@@ -56,55 +80,65 @@ class StorageEngine {
         }
     }
 
-    refresh() {
-        if (this._isScanning)
-            return;
+    refreshAll() {
+        for (const path of this._subscribers.keys()) {
+            this.refreshPath(path);
+        }
+    }
 
-        this._isScanning = true;
-        this._scanAllAsync()
-            .then((data) => {
-                this._isScanning = false;
-                if (!data) return;
+    async refreshPath(targetPath = '/') {
+        try {
+            const data = await this._scanPathAsync(targetPath);
+            
+            // Ha lecsatolták vagy nem elérhető, offline állapotot küldünk:
+            const resultData = data || {
+                path: targetPath,
+                isUnmounted: true,
+                total: 0,
+                free: 0,
+                used: 0,
+                categories: { system: 0, media: 0, archive: 0, image: 0, docs: 0, other: 0 },
+            };
 
-                this._cachedData = data;
-                for (const cb of this._subscribers) {
+            this._cache.set(targetPath, resultData);
+            const set = this._subscribers.get(targetPath);
+            if (set) {
+                for (const cb of set) {
                     try {
-                        cb(data);
+                        cb(resultData);
                     } catch (err) {
                         console.error(`[StorageEngine] Callback error: ${err}`);
                     }
                 }
-            })
-            .catch((err) => {
-                this._isScanning = false;
-                console.error(`[StorageEngine] Scan failed: ${err}`);
-            });
+            }
+        } catch (err) {
+            console.error(`[StorageEngine] Scan failed for ${targetPath}: ${err}`);
+        }
     }
 
-    async _scanAllAsync() {
-        const rootInfo = await this._getFsInfoAsync('/');
-        const homeBreakdown = await this._runFindAwkAsync();
+    async _scanPathAsync(targetPath = '/') {
+        const fsInfo = await this._getFsInfoAsync(targetPath);
+        if (!fsInfo) return null;
 
-        if (!rootInfo)
-            return null;
+        const breakdown = await this._runFindAwkAsync(targetPath);
 
-        const total = rootInfo.total;
-        const free = rootInfo.free;
+        const total = fsInfo.total;
+        const free = fsInfo.free;
         const used = Math.max(0, total - free);
 
-        const video = homeBreakdown.video || 0;
-        const audio = homeBreakdown.audio || 0;
+        const video = breakdown.video || 0;
+        const audio = breakdown.audio || 0;
         const media = video + audio;
-        const archive = homeBreakdown.archive || 0;
-        const image = homeBreakdown.image || 0;
-        const docs = homeBreakdown.docs || 0;
-        const otherHome = homeBreakdown.other || 0;
+        const archive = breakdown.archive || 0;
+        const image = breakdown.image || 0;
+        const docs = breakdown.docs || 0;
+        const otherFolder = breakdown.other || 0;
 
-        const categorizedHomeSum = media + archive + image + docs + otherHome;
-        // Rendszer + alkalmazások = teljes használt lemez mínusz a kategorizált home adatok
-        const system = Math.max(0, used - categorizedHomeSum);
+        const categorizedSum = media + archive + image + docs + otherFolder;
+        const system = Math.max(0, used - categorizedSum);
 
         return {
+            path: targetPath,
             total,
             free,
             used,
@@ -114,7 +148,7 @@ class StorageEngine {
                 archive,
                 image,
                 docs,
-                other: otherHome,
+                other: otherFolder,
             },
         };
     }
@@ -144,9 +178,16 @@ class StorageEngine {
         });
     }
 
-    _runFindAwkAsync() {
+    _runFindAwkAsync(scanPath = '/') {
         return new Promise((resolve) => {
-            const shellCommand = `find "$HOME" -maxdepth 6 -name ".*" -prune -o -type f -printf "%b\\t%p\\n" 2>/dev/null | awk -F'\\t' '{
+            const file = Gio.File.new_for_path(scanPath);
+            if (!file.query_exists(null)) {
+                resolve({});
+                return;
+            }
+
+            const target = (scanPath === '/') ? '$HOME' : `"${scanPath}"`;
+            const shellCommand = `timeout 5s find ${target} -maxdepth 6 -name ".*" -prune -o -type f -printf "%b\\t%p\\n" 2>/dev/null | awk -F'\\t' '{
                 size = $1 * 512;
                 n = split(tolower($2), parts, ".");
                 ext = (n > 1) ? parts[n] : "none";
@@ -175,13 +216,10 @@ class StorageEngine {
                             resolve(parsed);
                             return;
                         }
-                    } catch (e) {
-                        console.error(`[StorageEngine] Parse error: ${e}`);
-                    }
+                    } catch (e) {}
                     resolve({});
                 });
             } catch (err) {
-                console.error(`[StorageEngine] Subprocess spawn error: ${err}`);
                 resolve({});
             }
         });

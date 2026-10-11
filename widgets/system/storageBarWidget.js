@@ -2,6 +2,7 @@ import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import Pango from 'gi://Pango';
 import Cairo from 'gi://cairo';
+import GLib from 'gi://GLib';
 import {
     resolveWidgetForegroundColor,
     resolveExplicitFontFamily,
@@ -247,13 +248,32 @@ export function createStorageBarNode(config, width, height, xPosition, yPosition
 
     container.add_child(mainBox);
 
+    const targetPath = config.storagePath || '/';
+    let locationName = 'Root';
+    if (targetPath !== '/') {
+        const base = GLib.path_get_basename(targetPath);
+        locationName = (base && base !== '.') ? base : targetPath;
+    }
+
     // ── 4. Adatfrissítés bekötése ────────────────────────────────────────────
     const onDataUpdate = (data) => {
         if (!data) return;
         currentData = data;
 
+        if (data.isUnmounted) {
+            valueLabel.set_text('--');
+            totalLabel.set_text(`${locationName}: Unmounted / Offline`);
+            legSys.label.set_text('System: --');
+            legMed.label.set_text('Media: --');
+            legArc.label.set_text('Archive: --');
+            legDoc.label.set_text('Docs: --');
+            legFree.label.set_text('Free: --');
+            drawingArea.queue_repaint();
+            return;
+        }
+        
         valueLabel.set_text(formatBytes(data.free).replace(' ', ''));
-        totalLabel.set_text(`Total: ${formatBytes(data.total)}`);
+        totalLabel.set_text(`${locationName} total: ${formatBytes(data.total)}`);
 
         legSys.label.set_text(`System: ${formatLegendBytes(data.categories.system)}`);
         legMed.label.set_text(`Media: ${formatLegendBytes(data.categories.media)}`);
@@ -264,7 +284,7 @@ export function createStorageBarNode(config, width, height, xPosition, yPosition
         drawingArea.queue_repaint();
     };
 
-    const unsubscribe = storageEngine.subscribe(onDataUpdate);
+    const unsubscribe = storageEngine.subscribe(targetPath, onDataUpdate);
     registerWidgetCleanup(container, unsubscribe);
 
     return container;
