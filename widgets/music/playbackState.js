@@ -60,27 +60,35 @@ export function updateTimerLabel(state) {
 
 export function resetWidgetState(state) {
     state.artworkCss = null;
-    state.backgroundLayer.style = resolveArtworkLayerStyle(state);
+    if (state.config.vinylStyle === true) {
+        state.backgroundLayer.style = 'background-color: transparent;';
+    } else {
+        state.backgroundLayer.style = resolveArtworkLayerStyle(state);
+    }
+    state.lastArtUrl = null;
+    state.lastAppliedArtPath = null;
+    state.lastAppliedArtStyleSignature = null;
+    state.lastTrackTitle = null;
+
+    // Borító törlése (vinyl és normál módban is)
+    applyArtworkToBackground(state.backgroundLayer, null, state.config, state);
+
     if (state.playPauseIcon) state.playPauseIcon.set_icon_name(PLAY_ICON);
     state.currentPositionMicro = 0;
     state.trackLengthMicro = 0;
-    state.playbackStatus = 'Stopped';
     updateTimerLabel(state);
     if (state.titleLabel) state.titleLabel.set_text('Not Playing');
     if (state.artistLabel) state.artistLabel.set_text('Unknown Artist');
     if (state.albumLabel) state.albumLabel.hide();
     setAlbumColor(state, null);
-    state.lastArtUrl = null;
-    state.lastAppliedArtPath = null;
-    state.lastAppliedArtStyleSignature = null;
 
     const previousStatus = state.playbackStatus;
     state.playbackStatus = 'Stopped';
 
-    if (previousStatus !== 'Stopped' && state.onPlaybackStatusChanged) {
+    // Feltétel nélkül leállítjuk az animációt és visszahúzzuk a kart
+    if (state.onPlaybackStatusChanged) {
         state.onPlaybackStatusChanged('Stopped');
     }
-    
 }
 
 export function applyPlayerState(properties, state) {
@@ -115,9 +123,8 @@ export function applyPlayerState(properties, state) {
     } else if (isNewTrack) {
         state.trackLengthMicro = 0;
     }
-    if (track.artUrl) {
-        state.lastArtUrl = track.artUrl;
-    }
+    
+    state.lastArtUrl = track.artUrl || null;
 
     const positionMicro = unpackVariantValue(properties['Position']);
     const now = GLib.get_monotonic_time();
@@ -154,7 +161,7 @@ export function applyPlayerState(properties, state) {
         }
     }
 
-    applyArtworkToBackground(state.backgroundLayer, state.lastArtUrl || track.artUrl, state.config, state);
+    applyArtworkToBackground(state.backgroundLayer, state.lastArtUrl, state.config, state);
 }
 
 export function fetchMusicDataForConfig(config, callback) {

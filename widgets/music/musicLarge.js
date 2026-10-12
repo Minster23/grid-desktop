@@ -37,10 +37,14 @@ export function buildLargeLayout(config, state, width) {
     const { panelColor, textColor } = resolveMusicPanelColors(config, state);
     const halfWidth = Math.floor(width / 2);
 
+    state.container.clip_to_allocation = true;
+    state.container.style = `border-radius: ${cornerRadius}px;`;
+
     const splitContainer = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
         x_expand: true,
         y_expand: true,
+        clip_to_allocation: true,
         style: `background-color: ${panelColor}; border-radius: ${cornerRadius}px;`,
     });
 
@@ -48,7 +52,9 @@ export function buildLargeLayout(config, state, width) {
         x_expand: false,
         y_expand: true,
         width: halfWidth,
-        style: `background-color: ${panelColor}; border-top-left-radius: ${cornerRadius}px; border-bottom-left-radius: ${cornerRadius}px;`,
+        style: config.vinylStyle === true
+            ? 'background-color: transparent;'
+            : `background-color: ${panelColor}; border-radius: ${cornerRadius}px 0 0 ${cornerRadius}px;`,
     });
     state.backgroundLayer = imagePanel;
 
@@ -133,6 +139,7 @@ export function buildLargeLayout(config, state, width) {
         discActor.connect('destroy', () => {
             stopSpinning();
         });
+        state.stopSpinning = stopSpinning;
 
         state.onPlaybackStatusChanged = (status) => {
             if (!discActor || isActorDestroyed(discActor)) return;
@@ -252,6 +259,7 @@ export function buildLargeLayout(config, state, width) {
                 + ` background-color: ${colors.panelColor};`;
         } else if (turntableBox) {
             // A lemez dinamikus méretezése és középre pozicionálása
+            imagePanel.style = 'background-color: transparent;';
             const vinylSize = Math.round(BASE_VINYL_SIZE * scalerRatio);
             const centerSize = Math.round(BASE_CENTER_LABEL_SIZE * scalerRatio);
             const armW = Math.round(BASE_ARM_WIDTH * scalerRatio);

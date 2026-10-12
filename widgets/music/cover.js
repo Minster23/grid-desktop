@@ -34,9 +34,12 @@ export function setAlbumColor(state, color) {
 // Single source of truth for artwork layer CSS -- all style writes must go through here.
 export function resolveArtworkLayerStyle(state) {
     const radius = state.config.appliedBorderRadius !== undefined ? state.config.appliedBorderRadius : 0;
+    if (state.config.vinylStyle === true) {
+        return 'background-color: transparent;';
+    }
     const backgroundColor = resolveWidgetBackgroundColor(state.config);
     const artworkCss = state.artworkCss || '';
-    return `${artworkCss}background-color: ${backgroundColor}; border-top-left-radius: ${radius}px; border-bottom-left-radius: ${radius}px;`;
+    return `${artworkCss}background-color: ${backgroundColor}; border-radius: ${radius}px 0px 0px ${radius}px;`;
 }
 
 export function applyArtworkToBackground(backgroundLayer, artUrl, config, state) {
@@ -51,7 +54,19 @@ export function applyArtworkToBackground(backgroundLayer, artUrl, config, state)
 
         if (!localPath) {
             state.artworkCss = null;
-            backgroundLayer.style = resolveArtworkLayerStyle(state);
+            state.lastAppliedArtPath = null;
+            state.lastAppliedArtStyleSignature = styleSignature;
+            
+            // Ha vinyl mód, legyen transparent, különben a resolveArtworkLayerStyle adja meg:
+            if (state.config.vinylStyle === true) {
+                backgroundLayer.style = 'background-color: transparent;';
+                if (state.vinylCoverActor) {
+                    state.vinylCoverActor.style = 'border-radius: 999px; background-color: #1a1a1a;';
+                }
+            } else {
+                backgroundLayer.style = resolveArtworkLayerStyle(state);
+            }
+
             setAlbumColor(state, null);
             return;
         }
