@@ -84,9 +84,18 @@ export function createAudioOutputNode(config, width, height, xPosition, yPositio
     const outputMenu = Main.panel?.statusArea?.quickSettings?._volumeOutput?._output;
 
     function refreshDevices() {
-        if (isActorDestroyed(container) || !outputMenu?._deviceItems) return;
+        if (isActorDestroyed(container) || !outputMenu) return;
 
-        listContainer.destroy_all_children();
+        // Ha a menünek van frissítő metódusa, meghívjuk, hogy a _deviceItems naprakész legyen:
+        if (typeof outputMenu._updateDeviceList === 'function') {
+            outputMenu._updateDeviceList();
+        } else if (typeof outputMenu._sync === 'function') {
+            outputMenu._sync();
+        }
+
+        if (!outputMenu._deviceItems) return;
+
+        listContainer.destroy_all_children()
 
         const cardPadding = Math.max(5, Math.round(8 * scale));
         const cardRadius = Math.max(6, Math.round(10 * scale));
@@ -189,18 +198,42 @@ export function createAudioOutputNode(config, width, height, xPosition, yPositio
     }
 
     const mixerControl = Main.panel?.statusArea?.quickSettings?._volumeOutput?._control;
-    let sigDefaultSink = 0;
-    let sigActiveUpdate = 0;
+    const signalIds = [];
 
     if (mixerControl) {
-        sigDefaultSink = mixerControl.connect('default-sink-changed', refreshDevices);
-        sigActiveUpdate = mixerControl.connect('active-output-update', refreshDevices);
+        const events = [
+            'default-sink-changed',
+            'output-added',
+            'output-removed',
+            'active-output-update',
+            'stream-changed',
+        ];
+
+        for (const eventName of events) {
+            try {
+                const id = mixerControl.connect(eventName, () => {
+                    // Kis késleltetéssel hívjuk, hogy a Gvc/PipeWire struktúrák befejezzék a frissítést
+                    GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
+                        if (!isActorDestroyed(container)) {
+                            refreshDevices();
+                        }
+                        return GLib.SOURCE_REMOVE;
+                    });
+                });
+                signalIds.push(id);
+            } catch (e) {
+                // Ha az adott GNOME verzióban valamelyik szignál neve eltérne
+            }
+        }
     }
 
     container.connect('destroy', () => {
         if (mixerControl) {
-            if (sigDefaultSink) mixerControl.disconnect(sigDefaultSink);
-            if (sigActiveUpdate) mixerControl.disconnect(sigActiveUpdate);
+            for (const id of signalIds) {
+                try {
+                    mixerControl.disconnect(id);
+                } catch (e) {}
+            }
         }
     });
 
