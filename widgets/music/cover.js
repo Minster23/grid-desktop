@@ -33,10 +33,10 @@ export function setAlbumColor(state, color) {
 
 // Single source of truth for artwork layer CSS -- all style writes must go through here.
 export function resolveArtworkLayerStyle(state) {
-    const borderRadius = state.config.appliedBorderRadius !== undefined ? `${state.config.appliedBorderRadius}px` : '0px';
+    const radius = state.config.appliedBorderRadius !== undefined ? state.config.appliedBorderRadius : 0;
     const backgroundColor = resolveWidgetBackgroundColor(state.config);
     const artworkCss = state.artworkCss || '';
-    return `${artworkCss}background-color: ${backgroundColor}; border-radius: ${borderRadius}px;`;
+    return `${artworkCss}background-color: ${backgroundColor}; border-top-left-radius: ${radius}px; border-bottom-left-radius: ${radius}px;`;
 }
 
 export function applyArtworkToBackground(backgroundLayer, artUrl, config, state) {
@@ -57,8 +57,14 @@ export function applyArtworkToBackground(backgroundLayer, artUrl, config, state)
         }
         const imageUrl = localPath.startsWith('file://') ? localPath : `file://${localPath}`;
         state.artworkCss = `background-image: url("${imageUrl}"); background-size: cover; `;
-        backgroundLayer.style = resolveArtworkLayerStyle(state);
 
+        if (state.vinylCoverActor) {
+            // Bakelit módban a középső kerek actor kapja a borítót
+            state.vinylCoverActor.style = `background-image: url("${imageUrl}"); background-size: cover; border-radius: 999px;`;
+        } else {
+            backgroundLayer.style = resolveArtworkLayerStyle(state);
+        }
+        
         extractDominantColor(localPath).then(color => {
             if (isActorDestroyed(state.container) || state.lastAppliedArtPath !== localPath) return;
             setAlbumColor(state, color);

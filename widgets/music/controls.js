@@ -280,6 +280,12 @@ export function buildControlsColumn(config, state, width = BASE_CONTROL_CONTAINE
     });
 
     connectControlButton(playPauseBtn, state, () => {
+        const nextStatus = (state.playbackStatus === 'Playing') ? 'Paused' : 'Playing';
+        state.playbackStatus = nextStatus;
+        if (state.onPlaybackStatusChanged) {
+            state.onPlaybackStatusChanged(nextStatus);
+        }
+
         notifyPlayPauseAllInstances(state.currentPlayer);
         togglePlayPause(state.currentPlayer);
     });

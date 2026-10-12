@@ -73,15 +73,34 @@ export function resetWidgetState(state) {
     state.lastArtUrl = null;
     state.lastAppliedArtPath = null;
     state.lastAppliedArtStyleSignature = null;
+
+    const previousStatus = state.playbackStatus;
+    state.playbackStatus = 'Stopped';
+
+    if (previousStatus !== 'Stopped' && state.onPlaybackStatusChanged) {
+        state.onPlaybackStatusChanged('Stopped');
+    }
+    
 }
 
 export function applyPlayerState(properties, state) {
     const playbackStatus = unpackVariantValue(properties['PlaybackStatus']) || 'Stopped';
     const isPlaying = playbackStatus === 'Playing';
+
+    const previousStatus = state.playbackStatus;
     state.playbackStatus = playbackStatus;
+
+    if (previousStatus !== playbackStatus && state.onPlaybackStatusChanged) {
+        state.onPlaybackStatusChanged(playbackStatus);
+    }
+
     if (state.playPauseIcon) state.playPauseIcon.set_icon_name(isPlaying ? PAUSE_ICON : PLAY_ICON);
 
     const track = extractTrackMetadata(properties);
+
+    state.playbackStatus = playbackStatus;
+    if (state.playPauseIcon) state.playPauseIcon.set_icon_name(isPlaying ? PAUSE_ICON : PLAY_ICON);
+
 
     const isNewTrack = state.lastTrackTitle !== track.title;
 
@@ -215,6 +234,9 @@ export function notifyPlayPauseAllInstances(playerName) {
             state.playbackStatus = isPlaying ? 'Paused' : 'Playing';
             if (state.playPauseIcon) {
                 state.playPauseIcon.set_icon_name(isPlaying ? PLAY_ICON : PAUSE_ICON);
+            }
+            if (state.onPlaybackStatusChanged) {
+                state.onPlaybackStatusChanged(state.playbackStatus);
             }
         }
     }

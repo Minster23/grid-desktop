@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="sheen1" cx="50%" cy="50%" r="50%">
+      <stop offset="30%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="80%" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Felső-jobb és alsó-bal lágy fényív -->
+  <path d="M 100 100 L 70 5 A 100 100 0 0 1 140 12 Z" fill="url(#sheen1)" />
+  <path d="M 100 100 L 130 195 A 100 100 0 0 1 60 188 Z" fill="url(#sheen1)" />
+</svg>

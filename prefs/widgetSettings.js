@@ -529,7 +529,15 @@ export function buildMusicSettings(grid, rowIdx, widget, saveHandlers) {
         target.playerFilter = playerFilterSwitch.get_active() ? playerFilterEntry.get_text().trim() : '';
     });
 
-    if (isWideMusicLayout(widget)) {
+
+    if (isWideMusicLayout(widget)){
+        const vinylCoverLabel = new Gtk.Label({ label: 'Vinyl Disc Style:', xalign: 0, hexpand: true });
+        const vinylCoverSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
+        vinylCoverSwitch.set_active(widget.vinylStyle === true);
+        grid.attach(vinylCoverLabel, 0, rowIdx, 1, 1);
+        grid.attach(vinylCoverSwitch, 1, rowIdx, 1, 1);
+        rowIdx++;
+
         const coverBgLabel = new Gtk.Label({ label: 'Dominant Cover Background:', xalign: 0, hexpand: true });
         const coverBgSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
         coverBgSwitch.set_active(widget.coverBackground === true);
@@ -538,6 +546,7 @@ export function buildMusicSettings(grid, rowIdx, widget, saveHandlers) {
         rowIdx++;
 
         saveHandlers.push((target) => {
+            target.vinylStyle = vinylCoverSwitch.get_active();
             target.coverBackground = coverBgSwitch.get_active();
         });
     }
