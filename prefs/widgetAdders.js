@@ -40,16 +40,7 @@ export function addMusicWidget(settings, width = 4, height = 4) {
     config.isLargeLayout = width / height >= WIDE_MUSIC_LAYOUT_ASPECT_RATIO;
     addWidget(settings, config, width, height);
 }
-export function addMusicVisualizerWidget(settings, width = 4, height = 4) {
-    const config = {
-        id: nextWidgetId(settings, 'music'),
-        type: 'music',
-        layoutType: 'visualizer',
-        visualizerMode: 'bars',
-    };
-    config.isLargeLayout = width / height >= WIDE_MUSIC_LAYOUT_ASPECT_RATIO;
-    addWidget(settings, config, width, height);
-}
+
 export function addPomodoroWidget(settings, width = 4, height = 4) {
     addWidget(settings, { id: nextWidgetId(settings, 'pomodoro'), type: 'pomodoro' }, width, height);
 }

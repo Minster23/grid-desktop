@@ -38,8 +38,15 @@ export function resolveArtworkLayerStyle(state) {
         return 'background-color: transparent;';
     }
     const backgroundColor = resolveWidgetBackgroundColor(state.config);
-    const artworkCss = state.artworkCss || '';
-    return `${artworkCss}background-color: ${backgroundColor}; border-radius: ${radius}px 0px 0px ${radius}px;`;
+    const artworkCss = state.artworkCss || 'background-image: none; ';
+
+
+    // Ha nagy (8x4) layout, csak a bal oldal kerek; ha kis (4x4) widget, mind a 4 sarok kerek!
+    const borderRadiusCss = (state.config && state.config.isLargeLayout === true)
+        ? `${radius}px 0px 0px ${radius}px`
+        : `${radius}px`;
+
+    return `${artworkCss}background-color: ${backgroundColor}; border-radius: ${borderRadiusCss};`;
 }
 
 export function applyArtworkToBackground(backgroundLayer, artUrl, config, state) {
@@ -53,15 +60,15 @@ export function applyArtworkToBackground(backgroundLayer, artUrl, config, state)
         state.lastAppliedArtStyleSignature = styleSignature;
 
         if (!localPath) {
-            state.artworkCss = null;
+            state.artworkCss = 'background-image: none; ';;
             state.lastAppliedArtPath = null;
             state.lastAppliedArtStyleSignature = styleSignature;
             
             // Ha vinyl mód, legyen transparent, különben a resolveArtworkLayerStyle adja meg:
             if (state.config.vinylStyle === true) {
-                backgroundLayer.style = 'background-color: transparent;';
+                backgroundLayer.style = 'background-color: transparent; background-image: none;';
                 if (state.vinylCoverActor) {
-                    state.vinylCoverActor.style = 'border-radius: 999px; background-color: #1a1a1a;';
+                    state.vinylCoverActor.style = 'background-image: none; border-radius: 999px; background-color: #1a1a1a;';
                 }
             } else {
                 backgroundLayer.style = resolveArtworkLayerStyle(state);

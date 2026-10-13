@@ -19,7 +19,6 @@ const POSITION_JUMP_RESYNC_THRESHOLD_MICROSECONDS = 3000000;
 let seekedSignalId = 0;
 const activeMusicWidgetInstances = new Set();
 
-/** Clears all tracked instances; called from the extension's disable(). */
 export function clearMusicPlaybackState() {
     if (seekedSignalId) {
         Gio.DBus.session.signal_unsubscribe(seekedSignalId);
@@ -58,12 +57,11 @@ export function updateTimerLabel(state) {
         state._lastFillWidth = fillWidth;
     }
 
-    // Kar pozíció frissítése a lejátszási arány alapján
+    // Csak ezt az egy sort hívjuk meg a karhoz:
     if (typeof state.updateArmProgress === 'function') {
         state.updateArmProgress(ratio);
     }
 }
-
 
 export function resetWidgetState(state) {
     state.artworkCss = null;
@@ -72,27 +70,20 @@ export function resetWidgetState(state) {
     } else {
         state.backgroundLayer.style = resolveArtworkLayerStyle(state);
     }
-    state.lastArtUrl = null;
-    state.lastAppliedArtPath = null;
-    state.lastAppliedArtStyleSignature = null;
-    state.lastTrackTitle = null;
-
-    // Borító törlése (vinyl és normál módban is)
-    applyArtworkToBackground(state.backgroundLayer, null, state.config, state);
-
     if (state.playPauseIcon) state.playPauseIcon.set_icon_name(PLAY_ICON);
     state.currentPositionMicro = 0;
     state.trackLengthMicro = 0;
+    state.playbackStatus = 'Stopped';
     updateTimerLabel(state);
     if (state.titleLabel) state.titleLabel.set_text('Not Playing');
     if (state.artistLabel) state.artistLabel.set_text('Unknown Artist');
     if (state.albumLabel) state.albumLabel.hide();
     setAlbumColor(state, null);
+    state.lastArtUrl = null;
+    state.lastAppliedArtPath = null;
+    state.lastAppliedArtStyleSignature = null;
+    applyArtworkToBackground(state.backgroundLayer, null, state.config, state);
 
-    const previousStatus = state.playbackStatus;
-    state.playbackStatus = 'Stopped';
-
-    // Feltétel nélkül leállítjuk az animációt és visszahúzzuk a kart
     if (state.onPlaybackStatusChanged) {
         state.onPlaybackStatusChanged('Stopped');
     }
@@ -113,15 +104,15 @@ export function applyPlayerState(properties, state) {
 
     const track = extractTrackMetadata(properties);
 
-    state.playbackStatus = playbackStatus;
-    if (state.playPauseIcon) state.playPauseIcon.set_icon_name(isPlaying ? PAUSE_ICON : PLAY_ICON);
-
-
     const isNewTrack = state.lastTrackTitle !== track.title;
 
     if (isNewTrack) {
         state.lastTrackTitle = track.title;
         state.currentPositionMicro = 0;
+        // Új számnál AZONNAL frissítjük az artUrl-t az új száméra (ha nincs, null lesz!):
+        state.lastArtUrl = track.artUrl || null;
+    } else if (track.artUrl) {
+        state.lastArtUrl = track.artUrl;
     }
 
     state.trackId = track.trackId;
@@ -130,8 +121,9 @@ export function applyPlayerState(properties, state) {
     } else if (isNewTrack) {
         state.trackLengthMicro = 0;
     }
-    
-    state.lastArtUrl = track.artUrl || null;
+    if (track.artUrl) {
+        state.lastArtUrl = track.artUrl;
+    }
 
     const positionMicro = unpackVariantValue(properties['Position']);
     const now = GLib.get_monotonic_time();
@@ -152,7 +144,10 @@ export function applyPlayerState(properties, state) {
         }
     }
 
-    updateTimerLabel(state);
+    // PONTOSAN AZ EREDETI LOGIKA: ha fut a lejátszás és van timer, NEM hívjuk meg itt!
+    if (state.playbackStatus !== 'Playing' || !state.timerId) {
+        updateTimerLabel(state);
+    }
 
     if (state.titleLabel) state.titleLabel.set_text(track.title);
     if (state.artistLabel) state.artistLabel.set_text(track.artist);
@@ -166,7 +161,7 @@ export function applyPlayerState(properties, state) {
         }
     }
 
-    applyArtworkToBackground(state.backgroundLayer, state.lastArtUrl, state.config, state);
+    applyArtworkToBackground(state.backgroundLayer, track.artUrl || null, state.config, state);
 }
 
 export function fetchMusicDataForConfig(config, callback) {
@@ -185,22 +180,19 @@ export function fetchMusicDataForConfig(config, callback) {
                 }
             }
             callback({ activePlayer: null, properties: null });
-        } catch (err) {
-            // D-Bus hiba csendes elkapása a polling megszakadása ellen
+        } catch (_err) {
             callback({ activePlayer: null, properties: null });
         }
     })();
 }
 
-async function isSeekSenderMatch(state, senderUniqueName) {
+function isSeekSenderMatch(state, senderUniqueName) {
     if (!state.container || isActorDestroyed(state.container)) return false;
     if (!state.currentPlayer) return false;
     if (state.currentPlayer === senderUniqueName) return true;
-    const owner = await resolveBusOwner(state.currentPlayer);
-    return owner !== null && owner === senderUniqueName;
+    return resolveBusOwner(state.currentPlayer).then(owner => owner !== null && owner === senderUniqueName);
 }
 
-// Shared across all instances to avoid duplicate D-Bus subscriptions.
 export function setupDbusSignalListeners() {
     if (seekedSignalId === 0) {
         seekedSignalId = Gio.DBus.session.signal_subscribe(
@@ -229,13 +221,11 @@ export function setupDbusSignalListeners() {
     }
 }
 
-// Adds the widget to the global set so D-Bus Seeked signals reach it.
 export function registerMusicWidgetInstance(state) {
     activeMusicWidgetInstances.add(state);
     setupDbusSignalListeners();
 }
 
-// Removes the widget from the global set and cleans up D-Bus listener when empty.
 export function unregisterMusicWidgetInstance(state) {
     activeMusicWidgetInstances.delete(state);
     if (activeMusicWidgetInstances.size === 0 && seekedSignalId !== 0) {

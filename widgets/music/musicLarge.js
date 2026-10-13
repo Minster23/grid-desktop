@@ -141,11 +141,10 @@ export function buildLargeLayout(config, state, width) {
         });
         state.stopSpinning = stopSpinning;
 
-        const ARM_ANGLE_REST = 0;       // Alapállás (tartóban)
-        const ARM_ANGLE_START = 14;    // Lemez legkülső barázdája
-        const ARM_ANGLE_END = 30;      // Lemez belső kifutó barázdája (borító széle)
+        const ARM_ANGLE_REST = 0;
+        const ARM_ANGLE_START = 14;
+        const ARM_ANGLE_END = 30;
 
-        // Szög kiszámítása a lejátszási arányból (0.0 - 1.0)
         const calculateArmAngle = (progress) => {
             const p = Math.max(0, Math.min(1, progress || 0));
             return ARM_ANGLE_START + (ARM_ANGLE_END - ARM_ANGLE_START) * p;
@@ -159,7 +158,7 @@ export function buildLargeLayout(config, state, width) {
             const currentAngle = armActor.rotation_angle_z;
             const diff = Math.abs(targetAngle - currentAngle);
 
-            // Ha 1 foknál nagyobb az ugrás (pl. tekerés / seek történt), szépen animáljon oda
+            // Ha 1 foknál nagyobb ugrás történt (tekerés), animálva siklik át
             if (diff > 1.0) {
                 const isMapped = discActor && discActor.is_mapped() && discActor.get_stage() !== null;
                 if (isMapped) {
@@ -173,7 +172,7 @@ export function buildLargeLayout(config, state, width) {
                 }
             }
 
-            // Normál másodpercenkénti finom haladásnál közvetlenül beállítjuk
+            // Normál másodpercenkénti lépésnél közvetlenül beállítjuk
             armActor.rotation_angle_z = targetAngle;
         };
 

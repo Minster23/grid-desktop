@@ -13,7 +13,6 @@ import {
 } from './playbackState.js';
 import { buildSmallLayout } from './musicSmall.js';
 import { buildLargeLayout } from './musicLarge.js';
-import { buildVisualizerLayout } from './musicVisualizer.js';
 import { isActorDestroyed } from '../../utils/actorLifecycle.js';
 
 const LARGE_LAYOUT_BASE_HEIGHT = 240;
@@ -100,10 +99,7 @@ export function createMusicNode(config, width, height, xPosition, yPosition) {
     const isLargeLayout = height > 0 && width / height >= WIDE_MUSIC_LAYOUT_ASPECT_RATIO;
     config.isLargeLayout = isLargeLayout;
 
-    if (config.layoutType === 'visualizer') {
-        buildVisualizerLayout(config, state);
-    }
-    else if (isLargeLayout) {
+    if (isLargeLayout) {
         config.layoutScale = height / LARGE_LAYOUT_BASE_HEIGHT;
         buildLargeLayout(config, state, width);
     } else {

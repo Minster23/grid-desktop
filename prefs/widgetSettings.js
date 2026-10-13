@@ -460,41 +460,15 @@ export function buildTimeSettings(grid, rowIdx, widget, settings, saveHandlers) 
 }
 
 export function buildMusicSettings(grid, rowIdx, widget, saveHandlers) {
-    // --- Layout Style (Normal vs Visualizer) ---
-    if (widget.layoutType === 'visualizer') {
-        const vizModeLabel = new Gtk.Label({ label: 'Visualizer Pattern:', xalign: 0, hexpand: true });
-        const vizModes = ['bars', 'wave'];
-        const vizLabels = ['16-Bar Equalizer', 'Fluid Sine Wave'];
+    const isWide = isWideMusicLayout(widget);
 
-        const vizModeCombo = new Gtk.DropDown({
-            model: Gtk.StringList.new(vizLabels),
-            valign: Gtk.Align.CENTER,
-            halign: Gtk.Align.END,
-        });
-
-        const currentVizMode = widget.visualizerMode || 'bars';
-        const vizIdx = vizModes.indexOf(currentVizMode);
-        vizModeCombo.set_selected(vizIdx >= 0 ? vizIdx : 0);
-
-        grid.attach(vizModeLabel, 0, rowIdx, 1, 1);
-        grid.attach(vizModeCombo, 1, rowIdx, 1, 1);
-        rowIdx++;
-
-        saveHandlers.push((target) => {
-            target.visualizerMode = vizModes[vizModeCombo.get_selected()] || 'bars';
-        });
-    }
+    // ── 1. Alapvető lejátszó opciók (Mindkét méretre érvényes) ──
     const showControlsLabel = new Gtk.Label({ label: 'Show Player Controls:', xalign: 0, hexpand: true });
     const showControlsSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
     showControlsSwitch.set_active(widget.showControls !== false);
-
     grid.attach(showControlsLabel, 0, rowIdx, 1, 1);
     grid.attach(showControlsSwitch, 1, rowIdx, 1, 1);
     rowIdx++;
-
-    saveHandlers.push((target) => {
-        target.showControls = showControlsSwitch.get_active();
-    });
 
     const ignoreBrowsersLabel = new Gtk.Label({ label: 'Ignore Browser Players:', xalign: 0, hexpand: true });
     const ignoreBrowsersSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
@@ -524,32 +498,88 @@ export function buildMusicSettings(grid, rowIdx, widget, saveHandlers) {
         playerFilterEntry.set_sensitive(playerFilterSwitch.get_active());
     });
 
-    saveHandlers.push((target) => {
-        target.ignoreBrowsers = ignoreBrowsersSwitch.get_active();
-        target.playerFilter = playerFilterSwitch.get_active() ? playerFilterEntry.get_text().trim() : '';
-    });
+    // ── 2. Bakelit mód kapcsoló (Mindkét méretre érvényes!) ──
+    const vinylCoverLabel = new Gtk.Label({ label: 'Vinyl Disc Style:', xalign: 0, hexpand: true });
+    const vinylCoverSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
+    vinylCoverSwitch.set_active(widget.vinylStyle === true);
+    grid.attach(vinylCoverLabel, 0, rowIdx, 1, 1);
+    grid.attach(vinylCoverSwitch, 1, rowIdx, 1, 1);
+    rowIdx++;
 
+    // ── 3. Méretspecifikus opciók ──
+    let coverBgSwitch = null;
+    let visualizerSwitch = null;
+    let vizModeCombo = null;
+    const vizModes = ['bars', 'wave'];
 
-    if (isWideMusicLayout(widget)){
-        const vinylCoverLabel = new Gtk.Label({ label: 'Vinyl Disc Style:', xalign: 0, hexpand: true });
-        const vinylCoverSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-        vinylCoverSwitch.set_active(widget.vinylStyle === true);
-        grid.attach(vinylCoverLabel, 0, rowIdx, 1, 1);
-        grid.attach(vinylCoverSwitch, 1, rowIdx, 1, 1);
-        rowIdx++;
-
+    if (isWide) {
+        // Csak a Wide (8x4) verziónál: Borító domináns színe háttérként
         const coverBgLabel = new Gtk.Label({ label: 'Dominant Cover Background:', xalign: 0, hexpand: true });
-        const coverBgSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
+        coverBgSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
         coverBgSwitch.set_active(widget.coverBackground === true);
         grid.attach(coverBgLabel, 0, rowIdx, 1, 1);
         grid.attach(coverBgSwitch, 1, rowIdx, 1, 1);
         rowIdx++;
+    } else {
+        // Csak a Compact (4x4) verziónál: Vizuális spektrum kapcsoló
+        const visualizerLabel = new Gtk.Label({ label: 'Show Audio Spectrum:', xalign: 0, hexpand: true });
+        visualizerSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
+        // Ha korábban layoutType === 'visualizer' volt, vagy showVisualizer true:
+        const hasVisualizer = widget.showVisualizer === true || widget.layoutType === 'visualizer';
+        visualizerSwitch.set_active(hasVisualizer);
+        grid.attach(visualizerLabel, 0, rowIdx, 1, 1);
+        grid.attach(visualizerSwitch, 1, rowIdx, 1, 1);
+        rowIdx++;
 
-        saveHandlers.push((target) => {
-            target.vinylStyle = vinylCoverSwitch.get_active();
-            target.coverBackground = coverBgSwitch.get_active();
+        // Spektrum minta választó (Bars vagy Wave)
+        const vizModeLabel = new Gtk.Label({ label: 'Visualizer Pattern:', xalign: 0, hexpand: true });
+        const vizLabels = ['16-Bar Equalizer', 'Fluid Sine Wave'];
+        vizModeCombo = new Gtk.DropDown({
+            model: Gtk.StringList.new(vizLabels),
+            valign: Gtk.Align.CENTER,
+            halign: Gtk.Align.END,
         });
+        const currentVizMode = widget.visualizerMode || 'bars';
+        const vizIdx = vizModes.indexOf(currentVizMode);
+        vizModeCombo.set_selected(vizIdx >= 0 ? vizIdx : 0);
+
+        grid.attach(vizModeLabel, 0, rowIdx, 1, 1);
+        grid.attach(vizModeCombo, 1, rowIdx, 1, 1);
+        rowIdx++;
+
+        // FINOMSÁG: Ha a Vinyl be van kapcsolva, a Visualizer kapcsolók legyenek szürkék (letiltva)
+        const updateVisualizerSensitivity = () => {
+            const isVinyl = vinylCoverSwitch.get_active();
+            visualizerSwitch.set_sensitive(!isVinyl);
+            vizModeCombo.set_sensitive(!isVinyl && visualizerSwitch.get_active());
+        };
+
+        updateVisualizerSensitivity();
+        vinylCoverSwitch.connect('notify::active', updateVisualizerSensitivity);
+        visualizerSwitch.connect('notify::active', updateVisualizerSensitivity);
     }
+
+    // ── 4. Mentés összeállítása ──
+    saveHandlers.push((target) => {
+        target.showControls = showControlsSwitch.get_active();
+        target.ignoreBrowsers = ignoreBrowsersSwitch.get_active();
+        target.playerFilter = playerFilterSwitch.get_active() ? playerFilterEntry.get_text().trim() : '';
+        target.vinylStyle = vinylCoverSwitch.get_active();
+
+        if (coverBgSwitch) {
+            target.coverBackground = coverBgSwitch.get_active();
+        }
+
+        if (visualizerSwitch) {
+            target.showVisualizer = visualizerSwitch.get_active();
+            // Tisztítás: a régi layoutType mezőt törölhetjük, már nincs rá szükség
+            delete target.layoutType;
+        }
+
+        if (vizModeCombo) {
+            target.visualizerMode = vizModes[vizModeCombo.get_selected()] || 'bars';
+        }
+    });
 
     return rowIdx;
 }
