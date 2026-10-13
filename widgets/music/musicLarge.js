@@ -141,36 +141,79 @@ export function buildLargeLayout(config, state, width) {
         });
         state.stopSpinning = stopSpinning;
 
+        const ARM_ANGLE_REST = 0;       // Alapállás (tartóban)
+        const ARM_ANGLE_START = 14;    // Lemez legkülső barázdája
+        const ARM_ANGLE_END = 30;      // Lemez belső kifutó barázdája (borító széle)
+
+        // Szög kiszámítása a lejátszási arányból (0.0 - 1.0)
+        const calculateArmAngle = (progress) => {
+            const p = Math.max(0, Math.min(1, progress || 0));
+            return ARM_ANGLE_START + (ARM_ANGLE_END - ARM_ANGLE_START) * p;
+        };
+
+        state.updateArmProgress = (progress) => {
+            if (!armActor || isActorDestroyed(armActor)) return;
+            if (state.playbackStatus !== 'Playing') return;
+
+            const targetAngle = calculateArmAngle(progress);
+            const currentAngle = armActor.rotation_angle_z;
+            const diff = Math.abs(targetAngle - currentAngle);
+
+            // Ha 1 foknál nagyobb az ugrás (pl. tekerés / seek történt), szépen animáljon oda
+            if (diff > 1.0) {
+                const isMapped = discActor && discActor.is_mapped() && discActor.get_stage() !== null;
+                if (isMapped) {
+                    armActor.remove_all_transitions();
+                    armActor.ease({
+                        rotation_angle_z: targetAngle,
+                        duration: 350,
+                        mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                    });
+                    return;
+                }
+            }
+
+            // Normál másodpercenkénti finom haladásnál közvetlenül beállítjuk
+            armActor.rotation_angle_z = targetAngle;
+        };
+
         state.onPlaybackStatusChanged = (status) => {
             if (!discActor || isActorDestroyed(discActor)) return;
 
             const isMapped = discActor.is_mapped() && discActor.get_stage() !== null;
 
             if (status === 'Playing') {
+                const pos = state.currentPositionMicro || 0;
+                const len = state.trackLengthMicro || 0;
+                const currentRatio = len > 0 ? (pos / len) : 0;
+                const startAngle = calculateArmAngle(currentRatio);
+
                 if (isMapped) {
                     startSpinning();
                     if (armActor) {
+                        armActor.remove_all_transitions();
                         armActor.ease({
-                            rotation_angle_z: 18,
+                            rotation_angle_z: startAngle,
                             duration: 500,
                             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                         });
                     }
                 } else {
-                    if (armActor) armActor.rotation_angle_z = 18;
+                    if (armActor) armActor.rotation_angle_z = startAngle;
                 }
             } else {
                 stopSpinning();
                 if (isMapped) {
                     if (armActor) {
+                        armActor.remove_all_transitions();
                         armActor.ease({
-                            rotation_angle_z: 0,
+                            rotation_angle_z: ARM_ANGLE_REST,
                             duration: 500,
                             mode: Clutter.AnimationMode.EASE_IN_QUAD,
                         });
                     }
                 } else {
-                    if (armActor) armActor.rotation_angle_z = 0;
+                    if (armActor) armActor.rotation_angle_z = ARM_ANGLE_REST;
                 }
             }
         };

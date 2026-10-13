@@ -39,16 +39,17 @@ export function formatMicroseconds(microseconds) {
 }
 
 export function updateTimerLabel(state) {
+    const pos = state.currentPositionMicro || 0;
+    const len = state.trackLengthMicro || 0;
+
     if (state.timerLabelLeft && state.timerLabelRight) {
-        const pos = state.currentPositionMicro || 0;
-        const len = state.trackLengthMicro || 0;
         state.timerLabelLeft.set_text(formatMicroseconds(pos));
         state.timerLabelRight.set_text(formatMicroseconds(len));
     }
+
+    const ratio = len > 0 ? Math.min(1, Math.max(0, pos / len)) : 0;
+
     if (state.progressFill && state.progressBg) {
-        const pos = state.currentPositionMicro || 0;
-        const len = state.trackLengthMicro || 0;
-        const ratio = len > 0 ? Math.min(1, pos / len) : 0;
         const bgWidth = state.progressBg.get_width();
         if (bgWidth > 0) state._lastProgressBgWidth = bgWidth;
         const width = state._lastProgressBgWidth || 0;
@@ -56,7 +57,13 @@ export function updateTimerLabel(state) {
         state.progressFill.set_width(fillWidth);
         state._lastFillWidth = fillWidth;
     }
+
+    // Kar pozíció frissítése a lejátszási arány alapján
+    if (typeof state.updateArmProgress === 'function') {
+        state.updateArmProgress(ratio);
+    }
 }
+
 
 export function resetWidgetState(state) {
     state.artworkCss = null;
@@ -145,9 +152,7 @@ export function applyPlayerState(properties, state) {
         }
     }
 
-    if (state.playbackStatus !== 'Playing' || !state.timerId) {
-        updateTimerLabel(state);
-    }
+    updateTimerLabel(state);
 
     if (state.titleLabel) state.titleLabel.set_text(track.title);
     if (state.artistLabel) state.artistLabel.set_text(track.artist);
@@ -166,19 +171,24 @@ export function applyPlayerState(properties, state) {
 
 export function fetchMusicDataForConfig(config, callback) {
     (async () => {
-        const activePlayer = await getActiveMediaPlayer(config);
-        if (activePlayer) {
-            const properties = await fetchPlayerProperties(activePlayer);
-            if (properties) {
-                const livePosition = await fetchPlayerPosition(activePlayer);
-                if (livePosition !== null && livePosition !== undefined) {
-                    properties['Position'] = new GLib.Variant('x', livePosition);
+        try {
+            const activePlayer = await getActiveMediaPlayer(config);
+            if (activePlayer) {
+                const properties = await fetchPlayerProperties(activePlayer);
+                if (properties) {
+                    const livePosition = await fetchPlayerPosition(activePlayer);
+                    if (livePosition !== null && livePosition !== undefined) {
+                        properties['Position'] = new GLib.Variant('x', livePosition);
+                    }
+                    callback({ activePlayer, properties });
+                    return;
                 }
-                callback({ activePlayer, properties });
-                return;
             }
+            callback({ activePlayer: null, properties: null });
+        } catch (err) {
+            // D-Bus hiba csendes elkapása a polling megszakadása ellen
+            callback({ activePlayer: null, properties: null });
         }
-        callback({ activePlayer: null, properties: null });
     })();
 }
 
