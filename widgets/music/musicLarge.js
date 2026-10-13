@@ -20,8 +20,8 @@ const LABEL_MARGIN_BOTTOM_PX = 4;
 // Alapméretek 240px magas widgetre kalkulálva
 const BASE_VINYL_SIZE = 190;
 const BASE_CENTER_LABEL_SIZE = 86;
-const BASE_ARM_WIDTH = 46;
-const BASE_ARM_HEIGHT = 120;
+const BASE_ARM_WIDTH = 50;
+const BASE_ARM_HEIGHT = 155;
 
 function getAssetPath(filename) {
     const currentFilePath = Gio.File.new_for_uri(import.meta.url).get_path();
@@ -106,7 +106,7 @@ export function buildLargeLayout(config, state, width) {
             style: `background-image: url("${armUrl}"); background-size: contain; background-repeat: no-repeat;`,
             reactive: false,
         });
-        armActor.set_pivot_point(25 / 70, 25 / 180);
+        armActor.set_pivot_point(25 / 70, 25 / 220);
         armActor.rotation_angle_z = 0;
 
         turntableBox.add_child(discActor);
@@ -151,13 +151,13 @@ export function buildLargeLayout(config, state, width) {
                     startSpinning();
                     if (armActor) {
                         armActor.ease({
-                            rotation_angle_z: 22,
+                            rotation_angle_z: 18,
                             duration: 500,
                             mode: Clutter.AnimationMode.EASE_OUT_QUAD,
                         });
                     }
                 } else {
-                    if (armActor) armActor.rotation_angle_z = 22;
+                    if (armActor) armActor.rotation_angle_z = 18;
                 }
             } else {
                 stopSpinning();
@@ -285,8 +285,8 @@ export function buildLargeLayout(config, state, width) {
             sheenActor.set_position(vinylX, vinylY);
 
             // Kar pozíciója: jobb felső sarok felé tolva, hogy a lemez jobb szélére érjen
-            const armX = vinylX + Math.round(vinylSize * 0.94);
-            const armY = Math.max(2, vinylY + Math.round(8 * scalerRatio));
+            const armX = vinylX + Math.round(vinylSize * 0.98);
+            const armY = Math.max(0, vinylY + Math.round(14 * scalerRatio));
 
             armActor.set_size(armW, armH);
             armActor.set_position(armX, armY);

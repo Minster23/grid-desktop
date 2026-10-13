@@ -1,29 +1,60 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 180" width="70" height="180">
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 220" width="70" height="220">
   <defs>
-    <!-- Fém rúd színátmenete -->
-    <linearGradient id="metalArm" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#a5a5a3"/>
-      <stop offset="40%" stop-color="#eeeeee"/>
-      <stop offset="100%" stop-color="#a5a5a3"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-10%" width="150%" height="130%">
-      <feDropShadow dx="2" dy="3" stdDeviation="3" flood-opacity="0.35"/>
+    <!-- Árnyék szűrő a karnak és fejnek -->
+    <filter id="dropShadow" x="-20%" y="-10%" width="160%" height="130%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="3" dy="4" stdDeviation="3" flood-color="#000000" flood-opacity="0.35" />
     </filter>
+
+    <!-- Felső csapágyház radiális átmenet -->
+    <radialGradient id="pivotBase" cx="42%" cy="40%" r="58%">
+      <stop offset="0%" stop-color="#46484e" />
+      <stop offset="65%" stop-color="#2a2b2f" />
+      <stop offset="100%" stop-color="#141517" />
+    </radialGradient>
+
+    <!-- Belső fém gyűrű átmenet -->
+    <radialGradient id="pivotCore" cx="40%" cy="38%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="55%" stop-color="#dce0e6" />
+      <stop offset="100%" stop-color="#8c919a" />
+    </radialGradient>
+
+    <!-- Fém kar cső lineáris átmenet -->
+    <linearGradient id="armMetal" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#9ea3aa" />
+      <stop offset="35%" stop-color="#ffffff" />
+      <stop offset="70%" stop-color="#c5c9d0" />
+      <stop offset="100%" stop-color="#6f737a" />
+    </linearGradient>
+
+    <!-- Hangszedő fej átmenet -->
+    <linearGradient id="headShell" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="80%" stop-color="#eaebef" />
+      <stop offset="100%" stop-color="#c8ccd2" />
+    </linearGradient>
   </defs>
 
-  <!-- Kar árnyéka és teste -->
-  <g filter="url(#shadow)">
-    <!-- Rúd: a bázis közepétől (25,25) lefelé fut enyhe töréssel -->
-    <path d="M 23 25 L 23 115 L 35 145" fill="none" stroke="url(#metalArm)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Árnyékolt elemek csoportja -->
+  <g filter="url(#dropShadow)">
+    <!-- Kar szára (meghosszabbítva lefelé, balra ívelve a lemez felé) -->
+    <!-- Pivot pont (35, 25) -> egyenes szakasz (35, 140) -> törés balra le (20, 185) -->
+    <path d="M 32.5 25 L 32.5 140 L 17.5 185 L 22.5 187 L 37.5 141 L 37.5 25 Z" fill="url(#armMetal)" />
 
-    <!-- Hangszedő fej (headshell) a rúd végén szögben -->
-    <rect x="26" y="140" width="16" height="28" rx="4" transform="rotate(-15 35 154)" fill="#f0f0f0" stroke="#cccccc" stroke-width="1"/>
-    <!-- Kis fogantyú a fejen -->
-    <line x1="42" y1="150" x2="48" y2="152" stroke="#dddddd" stroke-width="2" stroke-linecap="round"/>
+    <!-- Hangszedő fej (Headshell) balra döntve a barázdákhoz -->
+    <g transform="translate(19, 184) rotate(22)">
+      <!-- Kis kiemelő kar/fül a hangszedő oldalán -->
+      <path d="M 7 12 C 10 14, 13 17, 14 19 C 12 20, 10 19, 8 16 L 7 14 Z" fill="#9ba0a8" opacity="0.85" />
+      <!-- Fejtest lekerekítve -->
+      <rect x="-8.5" y="-2" width="17" height="32" rx="4.5" fill="url(#headShell)" stroke="#cbd0d7" stroke-width="0.6" />
+      <!-- Stylus / patron díszcsík -->
+      <rect x="-5" y="3" width="10" height="2.2" rx="1" fill="#b0b5be" />
+    </g>
 
-    <!-- Forgóbázis (alap) -->
-    <circle cx="25" cy="25" r="18" fill="#3a393c" stroke="#5a595c" stroke-width="1.5"/>
-    <circle cx="25" cy="25" r="10" fill="#252426"/>
-    <circle cx="25" cy="25" r="5" fill="#e0e0e0"/>
+    <!-- Felső forgó csapágy (pivot pont középpontja pontosan: 35, 25) -->
+    <circle cx="35" cy="25" r="16.5" fill="url(#pivotBase)" />
+    <circle cx="35" cy="25" r="9.5" fill="url(#pivotCore)" />
+    <circle cx="35" cy="25" r="5" fill="#17181a" />
   </g>
 </svg>
