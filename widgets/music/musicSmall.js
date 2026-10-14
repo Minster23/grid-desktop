@@ -125,6 +125,9 @@ export function buildSmallLayout(config, state) {
             reactive: false,
         });
 
+        state.sheenActor = sheenActor;
+        sheenActor.hide();
+        
         const armSvgPath = getAssetPath('tonearm.svg');
         const armUrl = Gio.File.new_for_path(armSvgPath).get_uri();
         armActor = new St.Widget({
@@ -502,9 +505,11 @@ export function buildSmallLayout(config, state) {
         const fontFamily = resolveExplicitFontFamily(config);
         updateControlButtonScaling(state, scale, fontFamily, textColor);
 
-        const containerMargin = Math.max(MIN_CONTAINER_MARGIN_PX, Math.round(BASE_CONTAINER_MARGIN_PX * scale));
+        const marginX = Math.round(16 * scale);
+        const marginY = Math.max(MIN_CONTAINER_MARGIN_PX, Math.round(BASE_CONTAINER_MARGIN_PX * scale));
+
         if (state.controlsColumn) {
-            state.controlsColumn.style = `margin: ${containerMargin}px;`;
+            state.controlsColumn.style = `margin-left: ${marginX}px; margin-right: ${marginX}px; margin-bottom: ${marginY}px; margin-top: 0px;`;
         }
 
         if (gradientOverlay) {

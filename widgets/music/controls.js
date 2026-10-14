@@ -89,7 +89,7 @@ export function updateControlButtonScaling(state, scale, fontFamily, textColor) 
     const playSize = Math.max(1, Math.round(BASE_PLAY_ICON_SIZE * scale));
     const baseMargin = (state.config && state.config.isLargeLayout === true)
         ? BASE_BUTTON_MARGIN_LARGE
-        : BASE_BUTTON_MARGIN_SMALL;
+        : 10;
     const buttonMargin = Math.max(1, Math.round(baseMargin * scale));
     const timerFontSize = Math.max(1, Math.round(BASE_TIMER_FONT_SIZE * scale));
     const buttonStyle = (margin) => `margin: 0px ${margin}px; border-radius: ${BORDER_RADIUS_PILL}px;`;
@@ -133,8 +133,14 @@ export function updateControlButtonScaling(state, scale, fontFamily, textColor) 
     if (state.progressSpacer) {
         state.progressSpacer.set_height(Math.max(1, Math.round(BASE_PROGRESS_SPACER_HEIGHT * scale)));
     }
+    const isLarge = state.config && state.config.isLargeLayout === true;
+    const rowMarginH = isLarge ? 0 : Math.round(14 * scale);
     if (state.timerRow) {
-        state.timerRow.style = `margin-top: ${Math.max(1, Math.round(BASE_TIMER_MARGIN_TOP * scale))}px;`;
+        state.timerRow.style = `margin-top: ${Math.max(1, Math.round(BASE_TIMER_MARGIN_TOP * scale))}px;`
+            + (rowMarginH > 0 ? ` margin-left: ${rowMarginH}px; margin-right: ${rowMarginH}px;` : '');
+    }
+    if (state.progressRow && rowMarginH > 0) {
+        state.progressRow.style = `margin-left: ${rowMarginH}px; margin-right: ${rowMarginH}px;`;
     }
 }
 
@@ -166,17 +172,16 @@ export function buildControlsColumn(config, state, width = BASE_CONTROL_CONTAINE
 
     const buttonRow = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
-        x_align: isLargeLayout ? Clutter.ActorAlign.CENTER : Clutter.ActorAlign.FILL,
+        x_align: Clutter.ActorAlign.CENTER, // Mindig középre rendezve!
         y_align: Clutter.ActorAlign.CENTER,
     });
 
     const seekIconSize = Math.max(1, Math.round(BASE_SEEK_ICON_SIZE * scale));
     const playIconSize = Math.max(1, Math.round(BASE_PLAY_ICON_SIZE * scale));
-    // spread layout needs small edge margins; the large centered cluster
-    // keeps the wide 16px gaps between buttons
-    const buttonMargin = isLargeLayout
-        ? Math.floor(BASE_BUTTON_MARGIN_LARGE * scale)
-        : Math.max(1, Math.round(BASE_BUTTON_MARGIN_SMALL * scale));
+    
+    // Kis nézetben is adjunk 8-10px kényelmes távolságot a gombok közé, de ne feszítsük szét:
+    const baseMargin = isLargeLayout ? BASE_BUTTON_MARGIN_LARGE : 10;
+    const buttonMargin = Math.max(2, Math.round(baseMargin * scale));
 
     const seekBackBtn = createIconButton(
         SKIP_BACK_ICON,
@@ -194,19 +199,10 @@ export function buildControlsColumn(config, state, width = BASE_CONTROL_CONTAINE
         buttonMargin, textColor
     );
 
+    // Nincsenek feszítő spacerek: a három gomb szépen, elegánsan együtt marad középen!
     buttonRow.add_child(seekBackBtn);
-    if (isLargeLayout) {
-        buttonRow.add_child(playPauseBtn);
-        buttonRow.add_child(seekForwardBtn);
-    } else {
-        // equal expanders pin skip buttons to the edges and keep play centered
-        const leftSpacer = new St.Widget({ x_expand: true });
-        const rightSpacer = new St.Widget({ x_expand: true });
-        buttonRow.add_child(leftSpacer);
-        buttonRow.add_child(playPauseBtn);
-        buttonRow.add_child(rightSpacer);
-        buttonRow.add_child(seekForwardBtn);
-    }
+    buttonRow.add_child(playPauseBtn);
+    buttonRow.add_child(seekForwardBtn);
 
     const progressBarHeight = Math.max(1, Math.round(BASE_PROGRESS_BAR_HEIGHT * scale));
     const progressBg = new St.Widget({
@@ -237,10 +233,12 @@ export function buildControlsColumn(config, state, width = BASE_CONTROL_CONTAINE
         style: timerStyle,
     });
 
+    const rowMarginH = isLargeLayout ? 0 : Math.round(14 * scale);
     const progressRow = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
         x_expand: true,
         y_align: Clutter.ActorAlign.CENTER,
+        style: rowMarginH > 0 ? `margin-left: ${rowMarginH}px; margin-right: ${rowMarginH}px;` : '',
     });
     progressRow.add_child(progressBg);
 
@@ -252,10 +250,12 @@ export function buildControlsColumn(config, state, width = BASE_CONTROL_CONTAINE
     });
     controlsColumn.add_child(progressSpacer);
     controlsColumn.add_child(progressRow);
+
     const timerRow = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
         x_expand: true,
-        style: `margin-top: ${Math.floor(BASE_TIMER_MARGIN_TOP * scale)}px;`,
+        style: `margin-top: ${Math.floor(BASE_TIMER_MARGIN_TOP * scale)}px;`
+            + (rowMarginH > 0 ? ` margin-left: ${rowMarginH}px; margin-right: ${rowMarginH}px;` : ''),
     });
     timerRow.add_child(timerLabelLeft);
     const timerSpacer = new St.Widget({ x_expand: true });
@@ -274,6 +274,7 @@ export function buildControlsColumn(config, state, width = BASE_CONTROL_CONTAINE
     state.progressFill = progressFill;
     state.progressSpacer = progressSpacer;
     state.timerRow = timerRow;
+    state.progressRow = progressRow;
 
     connectControlButton(seekBackBtn, state, () => {
         skipToPrevious(state.currentPlayer);

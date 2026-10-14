@@ -100,6 +100,9 @@ export function buildLargeLayout(config, state, width) {
             reactive: false,
         });
 
+        state.sheenActor = sheenActor;
+        sheenActor.hide();
+
         const armSvgPath = getAssetPath('tonearm.svg');
         const armUrl = Gio.File.new_for_path(armSvgPath).get_uri();
         armActor = new St.Widget({

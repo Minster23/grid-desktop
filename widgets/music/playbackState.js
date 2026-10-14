@@ -65,6 +65,7 @@ export function updateTimerLabel(state) {
 
 export function resetWidgetState(state) {
     state.artworkCss = null;
+    if (state.sheenActor) state.sheenActor.hide();
     if (state.config.vinylStyle === true) {
         state.backgroundLayer.style = 'background-color: transparent;';
     } else {
@@ -92,6 +93,8 @@ export function resetWidgetState(state) {
 export function applyPlayerState(properties, state) {
     const playbackStatus = unpackVariantValue(properties['PlaybackStatus']) || 'Stopped';
     const isPlaying = playbackStatus === 'Playing';
+
+    if (state.sheenActor) state.sheenActor.show();
 
     const previousStatus = state.playbackStatus;
     state.playbackStatus = playbackStatus;
