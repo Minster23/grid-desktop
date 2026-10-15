@@ -13,6 +13,7 @@ import {
     todayDateString,
     loadJsonFromFileAsync,
     saveJsonToFile,
+    saveJsonToFileSync,
     getGridDesktopDataDir,
     deleteCacheFile,
     CAIRO_OPERATOR_CLEAR,
@@ -341,11 +342,19 @@ export function createWatermindNode(config, width, height, xPosition, yPosition)
     connectTimerCleanup(container, state);
 
     container.connect('destroy', () => {
-        if (messageSource && !messageSource.is_destroyed?.()) {
-            messageSource.destroy();
+        saveJsonToFileSync(dataFilePath, {
+            lastDay: state.lastDay,
+            totalConsumedToday: state.totalConsumedToday,
+            lastDrinkTime: state.lastDrinkTime,
+            sessionStartTime: state.sessionStartTime,
+        });
+
+        if (messageSource) {
+            try {
+                messageSource.destroy();
+            } catch (_e) {}
             messageSource = null;
         }
-        deleteCacheFile('watermind', config.id);
     });
 
     function applyScale(newScale) {
