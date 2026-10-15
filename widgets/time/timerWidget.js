@@ -131,11 +131,21 @@ export function createTimerNode(config, width, height, xPosition, yPosition) {
         canvasActor.queue_repaint();
     };
 
-    const source = new MessageTray.Source({
-        title: 'Timer',
-        iconName: 'alarm-symbolic',
-    });
-    Main.messageTray.add(source);
+    let messageSource = null;
+
+    function getMessageSource() {
+        if (!messageSource || messageSource.is_destroyed?.() || messageSource._disposed) {
+            messageSource = new MessageTray.Source({
+                title: timerTitle || 'Timer',
+                iconName: 'alarm-symbolic',
+            });
+            messageSource.connect('destroy', () => {
+                messageSource = null;
+            });
+            Main.messageTray.add(messageSource);
+        }
+        return messageSource;
+    }
 
     const stopTimer = () => {
         if (state.timerId) {
@@ -161,17 +171,20 @@ export function createTimerNode(config, width, height, xPosition, yPosition) {
                 if (state.secondsRemaining === 0) {
                     stopTimer();
 
-                    const notification = new MessageTray.Notification({
-                        source: source,
-                        title: 'Timer',
-                        body: 'The timer has expired!',
-                        gicon: new Gio.ThemedIcon({ name: 'alarm-symbolic' }),
-                        isTransient: false, 
-                    });
-
-                    notification.urgency = MessageTray.Urgency.CRITICAL;
-
-                    source.addNotification(notification);
+                    try {
+                        const src = getMessageSource();
+                        const notification = new MessageTray.Notification({
+                            source: src,
+                            title: timerTitle || 'Timer',
+                            body: 'The timer has expired!',
+                            gicon: new Gio.ThemedIcon({ name: 'alarm-symbolic' }),
+                            isTransient: false, 
+                        });
+                        notification.urgency = MessageTray.Urgency.CRITICAL;
+                        src.addNotification(notification);
+                    } catch (e) {
+                        console.error('Timer notify error:', e);
+                    }
                     
                     global.display.get_sound_player().play_from_theme(
                         'alarm-clock-elapsed',
@@ -214,7 +227,13 @@ export function createTimerNode(config, width, height, xPosition, yPosition) {
 
     container.connect('destroy', () => {
         stopTimer();
-        source.destroy();
+        if (messageSource) {
+            try {
+                messageSource.destroy();
+            } catch (_e) {
+            }
+            messageSource = null;
+        }
     });
 
     function applyScale(newScale) {

@@ -99,11 +99,21 @@ export function createCountdownNode(config, width, height, xPosition, yPosition)
 
     container.set_child(contentStack);
 
-    const source = new MessageTray.Source({
-        title: 'Timer',
-        iconName: 'alarm-symbolic',
-    });
-    Main.messageTray.add(source);
+   let messageSource = null;
+
+    function getMessageSource() {
+        if (!messageSource || messageSource.is_destroyed?.() || messageSource._disposed) {
+            messageSource = new MessageTray.Source({
+                title: 'Countdown',
+                iconName: 'alarm-symbolic',
+            });
+            messageSource.connect('destroy', () => {
+                messageSource = null;
+            });
+            Main.messageTray.add(messageSource);
+        }
+        return messageSource;
+    }
     
     const calculateTimeRemaining = () => {
         if (!targetTimestamp) {
@@ -124,22 +134,31 @@ export function createCountdownNode(config, width, height, xPosition, yPosition)
             state.progress = 1;
             canvasActor.queue_repaint();
 
-            const notification = new MessageTray.Notification({
-                source: source,
-                title: 'Countdown',
-                body: eventTitle +' has ended!',
-                gicon: new Gio.ThemedIcon({ name: 'alarm-symbolic' }),
-                isTransient: false, 
-            });
+            if (!state.hasNotified) {
+                state.hasNotified = true;
 
-            notification.urgency = MessageTray.Urgency.CRITICAL;
-            source.addNotification(notification);
-            
-            global.display.get_sound_player().play_from_theme(
-                'alarm-clock-elapsed',
-                'Countdown',
-                null
-            );
+                try {
+                    const src = getMessageSource();
+                    const notification = new MessageTray.Notification({
+                        source: src,
+                        title: 'Countdown',
+                        body: eventTitle + ' has ended!',
+                        gicon: new Gio.ThemedIcon({ name: 'alarm-symbolic' }),
+                        isTransient: false, 
+                    });
+
+                    notification.urgency = MessageTray.Urgency.CRITICAL;
+                    src.addNotification(notification);
+                } catch (e) {
+                    console.error('Countdown notify error:', e);
+                }
+                
+                global.display.get_sound_player().play_from_theme(
+                    'alarm-clock-elapsed',
+                    'Countdown',
+                    null
+                );
+            }
             return;
         }
 
@@ -180,7 +199,10 @@ export function createCountdownNode(config, width, height, xPosition, yPosition)
     connectTimerCleanup(container, state);
 
     container.connect('destroy', () => {
-        source.destroy();
+        if (typeof stopTimer === 'function') {
+            stopTimer();
+        }
+        messageSource = null;
     });
 
     function applyScale(newScale) {

@@ -122,7 +122,7 @@ export function createWatermindNode(config, width, height, xPosition, yPosition)
             const activeNotification = new MessageTray.Notification({
                 source: src,
                 title: 'Watermind',
-                body: `Ideje inni egy pohár vizet! (${hourlyTargetMl} ml/óra javasolt)`,
+                body: `Time to drink a glass of water! (${hourlyTargetMl} ml/hour recommended)`,
                 gicon: new Gio.ThemedIcon({ name: 'weather-showers-symbolic' }),
                 isTransient: false,
             });
@@ -318,7 +318,7 @@ export function createWatermindNode(config, width, height, xPosition, yPosition)
         const remainingMs = Math.max(0, intervalMs - elapsedSinceDrink);
 
         if (remainingMs <= 0) {
-            timerLabel.set_text('Ideje inni!');
+            timerLabel.set_text('Time to drink!');
             if (!state.hasNotified) {
                 state.hasNotified = true;
                 sendReminderNotification();
