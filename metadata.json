@@ -7,9 +7,10 @@
     "47",
     "48",
     "49",
-    "50"
+    "50",
+    "51"
   ],
   "settings-schema": "org.gnome.shell.extensions.grid-desktop",
   "url": "https://github.com/pelach/grid-desktop",
-  "version": 11
+  "version": 12
 }
