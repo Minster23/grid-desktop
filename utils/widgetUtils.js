@@ -65,6 +65,7 @@ export const MIN_WIDGET_SIZES = Object.freeze({
     'powerToggles': { minCols: 4, minRows: 4 },
     'worldAnalog': { minCols: 4, minRows: 4 },
     'calendarTasks': { minCols: 4, minRows: 4 },
+    'watermind': { minCols: 4, minRows: 4 },
 });
 
 /**
@@ -536,6 +537,7 @@ const SIZE_PRESETS = {
     'powerToggles': [[4, 4], [5, 5], [6, 6]],
     'worldAnalog': [[4, 4], [5, 5], [6, 6]],
     'calendarTasks': [[4, 4], [5, 5], [6, 6]],
+    'watermind': [[4, 4], [5, 5], [6, 6]],
 };
 
 export const FREE_FLOW_SIZE_TYPES = ['image', 'slideshow'];

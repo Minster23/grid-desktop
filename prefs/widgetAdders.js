@@ -287,3 +287,15 @@ export function addWorldAnalogWidget(settings, width = 4, height = 4, cities = n
 export function addCalendarTasksWidget(settings, width = 4, height = 4) {
     addWidget(settings, { id: nextWidgetId(settings, 'calendarTasks'), type: 'calendarTasks' }, width, height);
 }
+
+export function addWatermindWidget(settings, hourlyTargetMl = 250, intervalMinutes = 60, btn1 = 200, btn2 = 500, btn3 = 750, width = 4, height = 4) {
+    addWidget(settings, {
+        id: nextWidgetId(settings, 'watermind'),
+        type: 'watermind',
+        hourlyTargetMl,
+        intervalMinutes,
+        btn1Ml: btn1,
+        btn2Ml: btn2,
+        btn3Ml: btn3,
+    }, width, height);
+}

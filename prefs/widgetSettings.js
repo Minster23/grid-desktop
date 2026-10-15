@@ -1100,3 +1100,30 @@ export function buildStorageBarSettings(grid, rowIdx, widget, saveHandlers, pare
 
     return rowIdx;
 }
+
+export function buildWatermindSettings(grid, rowIdx, widget, saveHandlers) {
+    const targetLabel = new Gtk.Label({ label: 'Hourly Target (ml/h):', xalign: 0, hexpand: true });
+    const targetSpin = Gtk.SpinButton.new_with_range(50, 1000, 25);
+    targetSpin.set_valign(Gtk.Align.CENTER);
+    targetSpin.set_halign(Gtk.Align.END);
+    targetSpin.set_value(widget.hourlyTargetMl || 250);
+    grid.attach(targetLabel, 0, rowIdx, 1, 1);
+    grid.attach(targetSpin, 1, rowIdx, 1, 1);
+    rowIdx++;
+
+    const intervalLabel = new Gtk.Label({ label: 'Reminder Interval (Minutes):', xalign: 0, hexpand: true });
+    const intervalSpin = Gtk.SpinButton.new_with_range(15, 180, 5);
+    intervalSpin.set_valign(Gtk.Align.CENTER);
+    intervalSpin.set_halign(Gtk.Align.END);
+    intervalSpin.set_value(widget.intervalMinutes || 60);
+    grid.attach(intervalLabel, 0, rowIdx, 1, 1);
+    grid.attach(intervalSpin, 1, rowIdx, 1, 1);
+    rowIdx++;
+
+    saveHandlers.push((target) => {
+        target.hourlyTargetMl = Math.round(targetSpin.get_value());
+        target.intervalMinutes = Math.round(intervalSpin.get_value());
+    });
+
+    return rowIdx;
+}

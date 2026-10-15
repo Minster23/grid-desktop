@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <!-- Widget háttér finom sötét kitöltése -->
+    <rect id="bg" width="120" height="120" rx="16" fill="#1e1e24"/>
+  </defs>
+
+  <!-- Kártya alap -->
+  <use href="#bg"/>
+
+  <!-- Finom halvány szegély -->
+  <rect width="118" height="118" x="1" y="1" rx="15" fill="none" stroke="#ffffff" stroke-width="1" stroke-opacity="0.12"/>
+
+  <!-- 1. Háttér gyűrű (halvány szürke/kék pálya) -->
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#ffffff" stroke-width="5" stroke-opacity="0.12"/>
+
+  <!-- 2. Aktív kék ív (Adwaita blue kiemelés: pl. 40%-os napi haladás) -->
+  <!-- Kerület = 2 * PI * 44 ≈ 276.46. 40% = ~110.58 -->
+  <circle cx="60" cy="60" r="44" fill="none" stroke="#3584e4" stroke-width="5"
+          stroke-dasharray="110.58 276.46"
+          stroke-linecap="round"
+          transform="rotate(-90 60 60)"/>
+
+  <!-- 3. Fehér Marker / Célvonal felül (időarányos jelölő) -->
+  <line x1="60" y1="12" x2="60" y2="20" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-opacity="0.95"/>
+
+  <!-- 4. Szövegek a körön belül -->
+  <!-- Címke -->
+  <text x="60" y="44" font-family="Cantarell, sans-serif" font-size="7.5" fill="#ffffff" fill-opacity="0.55" text-anchor="middle">Watermind</text>
+  
+  <!-- Napi megivott mennyiség -->
+  <text x="60" y="59" font-family="Cantarell, sans-serif" font-size="14" font-weight="300" fill="#ffffff" text-anchor="middle">800 ml</text>
+  
+  <!-- Hátralévő idő számláló -->
+  <text x="60" y="69" font-family="Cantarell, sans-serif" font-size="6.5" fill="#ffffff" fill-opacity="0.55" text-anchor="middle">38:42</text>
+
+  <!-- 5. Alsó 3 gomb tabletták a körön belül -->
+  <!-- 200 ml gomb -->
+  <g transform="translate(36, 76)">
+    <rect width="14" height="8" rx="4" fill="#ffffff" fill-opacity="0.08"/>
+    <text x="7" y="6" font-family="Cantarell, sans-serif" font-size="5" fill="#ffffff" fill-opacity="0.8" text-anchor="middle">200</text>
+  </g>
+
+  <!-- 500 ml gomb -->
+  <g transform="translate(53, 76)">
+    <rect width="14" height="8" rx="4" fill="#ffffff" fill-opacity="0.08"/>
+    <text x="7" y="6" font-family="Cantarell, sans-serif" font-size="5" fill="#ffffff" fill-opacity="0.8" text-anchor="middle">500</text>
+  </g>
+
+  <!-- 750 ml gomb -->
+  <g transform="translate(70, 76)">
+    <rect width="14" height="8" rx="4" fill="#ffffff" fill-opacity="0.08"/>
+    <text x="7" y="6" font-family="Cantarell, sans-serif" font-size="5" fill="#ffffff" fill-opacity="0.8" text-anchor="middle">750</text>
+  </g>
+</svg>

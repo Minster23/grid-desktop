@@ -48,6 +48,7 @@ import { createDesktopIconNode } from '../widgets/desktopIcon.js';
 import { createPingNode } from '../widgets/system/pingWidget.js';
 import { createCryptoTrackerNode } from '../widgets/cryptoWidget.js';
 import { createTodayHistoryNode } from '../widgets/todayHistory.js';
+import { createWatermindNode } from '../widgets/watermind.js';
 
 const weatherCreator = (data, w, h, x, y) => {
     const dynamicColor = data.dynamicColor !== undefined ? data.dynamicColor : (data.globalWeatherDynamicColor !== false);
@@ -107,6 +108,7 @@ const WIDGET_CREATORS = {
     'powerToggles': (data, w, h, x, y) => createPowerTogglesNode(data, w, h, x, y),
     'worldAnalog': (data, w, h, x, y) => createWorldTimeAnalogNode(data, w, h, x, y),
     'calendarTasks': (data, w, h, x, y) => createCalendarTasksNode(data, w, h, x, y),
+    'watermind': (data, w, h, x, y) => createWatermindNode(data, w, h, x, y),
 };
 
 export function createWidgetNode(data, width, height, x, y) {

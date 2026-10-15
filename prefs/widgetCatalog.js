@@ -337,6 +337,13 @@ export const STORE_WIDGETS = Object.freeze({
         thumbnail: 'date-and-time/calendarTasks.svg',
         fallbackIconName: 'x-office-calendar-symbolic',
     },
+    watermind: {
+        title: 'Watermind',
+        description: 'Track daily water intake, hydration levels, and receive periodic reminders.',
+        gridSize: '4x4',
+        thumbnail: 'watermind/watermind.svg', // vagy meglévő ikon
+        fallbackIconName: 'weather-showers-symbolic',
+    },
 });
 
 export const STORE_CATEGORIES = Object.freeze({
@@ -373,7 +380,8 @@ export const STORE_CATEGORIES = Object.freeze({
         'cryptoWidget',
         'todayHistory',
         'powerToggles',
-        'calendarTasks'
+        'calendarTasks',
+        'watermind'
     ],
 });
 
@@ -495,6 +503,8 @@ function getStoreWidgetKey(widget) {
             return 'todayHistory';
         case 'calendarTasks':
             return 'calendarTasks';
+        case 'watermind':
+            return 'watermind';
         default:
             return null;
     }
@@ -566,6 +576,8 @@ export function getWidgetDetailText(widget) {
             const lang = (widget.language || 'hu').toUpperCase();
             return `Language: ${lang}`;
         }
+        case 'watermind':
+            return `Goal: ${widget.hourlyTargetMl || 250} ml/h (${widget.intervalMinutes || 60} min)`;
         default:
             return '';
     }

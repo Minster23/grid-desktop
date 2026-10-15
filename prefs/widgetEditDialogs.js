@@ -21,6 +21,7 @@ import {
     buildCryptoTrackerSettings,
     buildHistoryTrackerSettings,
     buildStorageBarSettings,
+    buildWatermindSettings,
 } from './widgetSettings.js';
 
 export function buildWidgetEditPanel(parentWindow, widget, settings, onSavedCallback) {
@@ -102,6 +103,9 @@ export function buildWidgetEditPanel(parentWindow, widget, settings, onSavedCall
         case 'storageBar':
         case 'storage_bar':
             rowIdx = buildStorageBarSettings(grid, rowIdx, widget, saveHandlers, parentWindow);
+            break;
+        case 'watermind':
+            rowIdx = buildWatermindSettings(grid, rowIdx, widget, saveHandlers);
             break;
     }
 

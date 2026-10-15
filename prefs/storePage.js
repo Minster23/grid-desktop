@@ -51,7 +51,8 @@ import {
     openAddRssHeadlinesDialog,
     openAddSunScheduleDialog,
     openAddCountdownDialog,
-    openAddWorldAnalogDialog
+    openAddWorldAnalogDialog,
+    openAddWatermindDialog,
 } from './widgetAddDialogs.js';
 
 import { STORE_CATEGORIES, STORE_WIDGETS } from './widgetCatalog.js';
@@ -288,13 +289,14 @@ export function buildStorePage(window, settings, extensionPath) {
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.githubWidget, () => openAddGithubDialog(window, settings)),
 
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.habitTracker, () => addHabitTrackerWidget(settings)),
+        createDesktopWidgetCard(extensionPath, STORE_WIDGETS.watermind, () => openAddWatermindDialog(window, settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.moodWidget, () => addMoodWidget(settings)),
-        createDesktopWidgetCard(extensionPath, STORE_WIDGETS.screenTimeWidget, () => addScreenTimeWidget(settings)),
         
+        createDesktopWidgetCard(extensionPath, STORE_WIDGETS.screenTimeWidget, () => addScreenTimeWidget(settings)),    
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.todayHistory, () => addTodayHistoryWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.rssHeadlinesWidget, () => openAddRssHeadlinesDialog(window, settings)),
+        
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.quotesWidget, () => addQuotesWidget(settings)),
-
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.calendarTasks, () => addCalendarTasksWidget(settings)),
 
     ]));

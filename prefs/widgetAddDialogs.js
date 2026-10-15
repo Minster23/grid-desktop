@@ -17,6 +17,7 @@ import { createAppSelectionControls } from './appSelection.js';
 import { createLiveCitySearchRow, buildOpenMeteoCitySearchRow } from './citySearch.js';
 import { buildCaptionRows } from './captionControls.js';
 import { DEFAULT_WORLD_CLOCK_CITIES, MIN_SLIDESHOW_INTERVAL_SEC, MAX_SLIDESHOW_INTERVAL_SEC, STEP_SLIDESHOW_INTERVAL_SEC, DEFAULT_SLIDESHOW_INTERVAL_SEC } from './widgetConstants.js';
+import { addWatermindWidget } from './widgetAdders.js';
 
 export { DEFAULT_WORLD_CLOCK_CITIES, MIN_SLIDESHOW_INTERVAL_SEC, MAX_SLIDESHOW_INTERVAL_SEC, STEP_SLIDESHOW_INTERVAL_SEC, DEFAULT_SLIDESHOW_INTERVAL_SEC } from './widgetConstants.js';
 
@@ -318,6 +319,52 @@ export function openAddWorldAnalogDialog(parentWindow, settings) {
                 // Tartalék, ha közvetlenül addWidgettel mentenéd:
                 addTimeWidget(settings, 4, 4, 'worldAnalog', cities);
             }
+        }
+        dialogWindow.destroy();
+    });
+
+    dialog.present();
+}
+
+export function openAddWatermindDialog(parentWindow, settings) {
+    const { dialog, grid } = createBaseWidgetAddDialog(parentWindow, 'Configure Watermind Widget');
+
+    // 1. Óránkénti cél (ml/óra)
+    const targetLabel = new Gtk.Label({ label: 'Hourly Target (ml/hour):', xalign: 0, hexpand: true });
+    const targetSpin = Gtk.SpinButton.new_with_range(50, 1000, 25);
+    targetSpin.set_value(250);
+    grid.attach(targetLabel, 0, 0, 1, 1);
+    grid.attach(targetSpin, 1, 0, 1, 1);
+
+    // 2. Értesítési ciklus (perc)
+    const intervalLabel = new Gtk.Label({ label: 'Reminder Interval (Minutes):', xalign: 0, hexpand: true });
+    const intervalSpin = Gtk.SpinButton.new_with_range(15, 180, 5);
+    intervalSpin.set_value(60);
+    grid.attach(intervalLabel, 0, 1, 1, 1);
+    grid.attach(intervalSpin, 1, 1, 1, 1);
+
+    // 3. Gyorsgombok beállítása
+    const btnBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6 });
+    const b1 = Gtk.SpinButton.new_with_range(50, 1000, 25); b1.set_value(200);
+    const b2 = Gtk.SpinButton.new_with_range(50, 1000, 25); b2.set_value(500);
+    const b3 = Gtk.SpinButton.new_with_range(50, 1000, 25); b3.set_value(750);
+    btnBox.append(b1); btnBox.append(b2); btnBox.append(b3);
+
+    const btnLabel = new Gtk.Label({ label: 'Quick Buttons (ml):', xalign: 0, hexpand: true });
+    grid.attach(btnLabel, 0, 2, 1, 1);
+    grid.attach(btnBox, 1, 2, 1, 1);
+
+    dialog.connect('response', (dialogWindow, responseId) => {
+        if (responseId === Gtk.ResponseType.OK) {
+            addWatermindWidget(
+                settings,
+                Math.round(targetSpin.get_value()),
+                Math.round(intervalSpin.get_value()),
+                Math.round(b1.get_value()),
+                Math.round(b2.get_value()),
+                Math.round(b3.get_value()),
+                4, 4
+            );
         }
         dialogWindow.destroy();
     });
