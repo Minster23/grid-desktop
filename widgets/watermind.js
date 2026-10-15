@@ -99,21 +99,38 @@ export function createWatermindNode(config, width, height, xPosition, yPosition)
     let subFontSize = Math.max(1, Math.round(11 * scale));
     let btnFontSize = Math.max(1, Math.round(10 * scale));
 
-    const source = new MessageTray.Source({
-        title: 'Watermind',
-        iconName: 'weather-showers-symbolic',
-    });
-    Main.messageTray.add(source);
+    let messageSource = null;
 
+    function getMessageSource() {
+        if (!messageSource || messageSource.is_destroyed?.() || messageSource._disposed) {
+            messageSource = new MessageTray.Source({
+                title: 'Watermind',
+                iconName: 'weather-showers-symbolic',
+            });
+            messageSource.connect('destroy', () => {
+                messageSource = null;
+            });
+            Main.messageTray.add(messageSource);
+        }
+        return messageSource;
+    }
+    let activeNotification = null;
+    
     function sendReminderNotification() {
-        const notification = new MessageTray.Notification({
-            source: source,
-            title: 'Watermind',
-            body: `Ideje inni egy pohár vizet! (${hourlyTargetMl} ml/óra javasolt)`,
-            gicon: new Gio.ThemedIcon({ name: 'weather-showers-symbolic' }),
-            isTransient: true,
-        });
-        source.addNotification(notification);
+        try {
+            const src = getMessageSource();
+            const activeNotification = new MessageTray.Notification({
+                source: src,
+                title: 'Watermind',
+                body: `Ideje inni egy pohár vizet! (${hourlyTargetMl} ml/óra javasolt)`,
+                gicon: new Gio.ThemedIcon({ name: 'weather-showers-symbolic' }),
+                isTransient: false,
+            });
+            src.addNotification(activeNotification);
+        } catch (e) {
+            console.error('Watermind notify error:', e);
+        }
+
         try {
             global.display.get_sound_player().play_from_theme('message-new-instant', 'Watermind', null);
         } catch (e) {}
@@ -234,6 +251,10 @@ export function createWatermindNode(config, width, height, xPosition, yPosition)
         });
 
         btn.connect('clicked', () => {
+            if (activeNotification) {
+                activeNotification.destroy();
+                activeNotification = null;
+            }
             state.totalConsumedToday += ml;
             state.lastDrinkTime = Date.now();
             state.hasNotified = false;
@@ -320,7 +341,10 @@ export function createWatermindNode(config, width, height, xPosition, yPosition)
     connectTimerCleanup(container, state);
 
     container.connect('destroy', () => {
-        source.destroy();
+        if (messageSource && !messageSource.is_destroyed?.()) {
+            messageSource.destroy();
+            messageSource = null;
+        }
         deleteCacheFile('watermind', config.id);
     });
 
