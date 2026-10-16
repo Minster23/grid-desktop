@@ -84,7 +84,7 @@ export function buildLargeLayout(config, state, width) {
         });
         state.vinylCoverActor = vinylCoverActor;
 
-        const vinylSvgPath = getAssetPath('vinyl.svg');
+        const vinylSvgPath = getAssetPath('vinyl/vinyl.svg');
         vinylTexture = new St.Icon({
             gicon: Gio.FileIcon.new(Gio.File.new_for_path(vinylSvgPath)),
         });
@@ -92,7 +92,7 @@ export function buildLargeLayout(config, state, width) {
         discActor.add_child(vinylCoverActor);
         discActor.add_child(vinylTexture);
 
-        const sheenSvgPath = getAssetPath('vinyl_sheen.svg');
+        const sheenSvgPath = getAssetPath('vinyl/vinyl_sheen.svg');
         sheenActor = new St.Icon({
             gicon: Gio.FileIcon.new(Gio.File.new_for_path(sheenSvgPath)),
             x_align: Clutter.ActorAlign.CENTER,
@@ -103,7 +103,7 @@ export function buildLargeLayout(config, state, width) {
         state.sheenActor = sheenActor;
         sheenActor.hide();
 
-        const armSvgPath = getAssetPath('tonearm.svg');
+        const armSvgPath = getAssetPath('vinyl/tonearm.svg');
         const armUrl = Gio.File.new_for_path(armSvgPath).get_uri();
         armActor = new St.Widget({
             style: `background-image: url("${armUrl}"); background-size: contain; background-repeat: no-repeat;`,

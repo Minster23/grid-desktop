@@ -40,6 +40,10 @@ export function createWatermindNode(config, width, height, xPosition, yPosition)
     const textColor = resolveWidgetForegroundColor(config);
     const accentHex = config.globalAccentColor || '#3584e4';
 
+    const extensionPath = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_path();
+    const iconPath = GLib.build_filenamev([extensionPath, 'assets', 'icons', 'watermind-symbolic.svg']);
+    const waterIcon = new Gio.FileIcon({ file: Gio.File.new_for_path(iconPath) });
+
     const container = createWidgetContainer(config, width, height, xPosition, yPosition);
     container.style += ` border: 1px solid ${cssColorToRgba(textColor, BORDER_ALPHA)};`;
 
@@ -101,12 +105,13 @@ export function createWatermindNode(config, width, height, xPosition, yPosition)
     let btnFontSize = Math.max(1, Math.round(10 * scale));
 
     let messageSource = null;
+    let activeNotification = null;
 
     function getMessageSource() {
         if (!messageSource || messageSource.is_destroyed?.() || messageSource._disposed) {
             messageSource = new MessageTray.Source({
                 title: 'Watermind',
-                iconName: 'weather-showers-symbolic',
+                icon: waterIcon, 
             });
             messageSource.connect('destroy', () => {
                 messageSource = null;
@@ -115,16 +120,16 @@ export function createWatermindNode(config, width, height, xPosition, yPosition)
         }
         return messageSource;
     }
-    let activeNotification = null;
-    
+
     function sendReminderNotification() {
         try {
             const src = getMessageSource();
-            const activeNotification = new MessageTray.Notification({
+            // Itt NEM const, hanem a külső let változónak adjuk értékül:
+            activeNotification = new MessageTray.Notification({
                 source: src,
                 title: 'Watermind',
                 body: `Time to drink a glass of water! (${hourlyTargetMl} ml/hour recommended)`,
-                gicon: new Gio.ThemedIcon({ name: 'weather-showers-symbolic' }),
+                gicon: waterIcon, // <--- A felugró értesítésen is a saját ikon jelenik meg
                 isTransient: false,
             });
             src.addNotification(activeNotification);

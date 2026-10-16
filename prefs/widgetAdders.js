@@ -299,3 +299,7 @@ export function addWatermindWidget(settings, hourlyTargetMl = 250, intervalMinut
         btn3Ml: btn3,
     }, width, height);
 }
+
+export function addBluetoothDevicesWidget(settings, width = 4, height = 4) {
+    addWidget(settings, { id: nextWidgetId(settings, 'bluetoothDevices'), type: 'bluetoothDevices' }, width, height);
+}

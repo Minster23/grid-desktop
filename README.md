@@ -88,6 +88,7 @@ A high-performance desktop widget ecosystem and icon manager for GNOME Shell, po
 - **Battery Status**: Unified charge monitor tracking laptop battery percentage and charging state alongside connected Bluetooth peripherals.
 - **Audio Output**: Fast device switcher to toggle between connected audio sinks (Analog, S/PDIF, HDMI/DisplayPort).
 - **Control Sliders**: Interactive on-canvas sliders for master audio volume and display brightness.
+- **Bluetooth Devices**: Live list of connected Bluetooth peripherals with device-type icons and battery levels. Features scrollable overflow for multiple devices and one-click disconnect action.
 
 #### Productivity & Organization
 *Desktop workflow, task management, and productivity enhancement tools.*

@@ -24,7 +24,8 @@ import {
     createControlsSlidersNode,
     createPowerProfilesNode,
     createStorageBarNode,
-    createPowerTogglesNode
+    createPowerTogglesNode,
+    createBluetoothDevicesNode
 } from '../widgets/system/index.js';
 import { createPomodoroNode } from '../widgets/pomodoro.js';
 import { createPomodoroFocusNode } from '../widgets/pomodoroFocus.js';
@@ -109,6 +110,7 @@ const WIDGET_CREATORS = {
     'worldAnalog': (data, w, h, x, y) => createWorldTimeAnalogNode(data, w, h, x, y),
     'calendarTasks': (data, w, h, x, y) => createCalendarTasksNode(data, w, h, x, y),
     'watermind': (data, w, h, x, y) => createWatermindNode(data, w, h, x, y),
+    'bluetoothDevices': (data, w, h, x, y) => createBluetoothDevicesNode(data, w, h, x, y),
 };
 
 export function createWidgetNode(data, width, height, x, y) {

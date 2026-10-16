@@ -40,6 +40,7 @@ import {
     addPowerTogglesWidget,
     addWorldAnalogWidget,
     addCalendarTasksWidget,
+    addBluetoothDevicesWidget
 } from './widgetAdders.js';
 
 import {
@@ -252,7 +253,8 @@ export function buildStorePage(window, settings, extensionPath) {
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.powerProfiles, () => addPowerProfilesWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.batteryStatus, () => addBatteryStatusWidget(settings, 4, 3)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.audioOutput, () => addAudioOutputWidget(settings)),
-
+        
+        createDesktopWidgetCard(extensionPath, STORE_WIDGETS.bluetoothDevices, () => addBluetoothDevicesWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.controlsSliders, () => addControlsSlidersWidget(settings)),
     ]));
 

@@ -1,11 +1,16 @@
 import Gtk from 'gi://Gtk';
 import Adw from 'gi://Adw';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+
 import { getWidgets, saveWidgets, deleteCacheFile } from '../utils/widgetUtils.js';
 import { buildWidgetEditPanel } from './widgetEditDialogs.js';
 import { getStoreWidgetEntry, getWidgetDetailText } from './widgetCatalog.js';
 
 const GLOBAL_SECTION_KEY = 'global';
 const PRIMARY_SECTION_KEY = 'primary';
+
+const extensionPath = Gio.File.new_for_uri(import.meta.url).get_parent().get_parent().get_path();
 
 function normalizeMonitorSectionKey(monitorSetting) {
     if (!monitorSetting || monitorSetting === GLOBAL_SECTION_KEY) {
@@ -120,12 +125,32 @@ function createWidgetRow(window, settings, widget) {
     expanderRow.widgetId = widget.id;
     expanderRow.editPanelLoaded = false;
 
-    const icon = new Gtk.Image({
-        icon_name: rowIconName,
-        pixel_size: 24, // 28 helyett a standard 24 Adwaita méret
-        margin_end: 8,
-        valign: Gtk.Align.CENTER,
-    });
+    let icon;
+
+    if (widgetEntry && widgetEntry.customIcon) {
+        const iconPath = GLib.build_filenamev([extensionPath, 'assets', widgetEntry.customIcon]);
+        const iconFile = Gio.File.new_for_path(iconPath);
+
+        if (iconFile.query_exists(null)) {
+            const gicon = new Gio.FileIcon({ file: iconFile });
+            icon = new Gtk.Image({
+                gicon: gicon,
+                pixel_size: 24,
+            });
+        }
+    }
+
+    // Ha nincs customIcon (vagy a fájl valamiért nem létezik), marad az eddigi fallback rendszerikon
+    if (!icon) {
+        icon = new Gtk.Image({
+            icon_name: rowIconName,
+            pixel_size: 24,
+        });
+    }
+
+    icon.margin_end = 8;
+    icon.valign = Gtk.Align.CENTER;
+    
     expanderRow.add_prefix(icon);
 
     // Külön ikon widget létrehozása a gombhoz explicit igazítással

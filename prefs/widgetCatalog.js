@@ -341,8 +341,16 @@ export const STORE_WIDGETS = Object.freeze({
         title: 'Watermind',
         description: 'Track daily water intake, hydration levels, and receive periodic reminders.',
         gridSize: '4x4',
-        thumbnail: 'watermind/watermind.svg', // vagy meglévő ikon
-        fallbackIconName: 'weather-showers-symbolic',
+        thumbnail: 'watermind/watermind.svg', 
+        customIcon: 'icons/watermind-symbolic.svg',
+        fallbackIconName: 'cup-symbolic',
+    },
+    bluetoothDevices: {
+        title: 'Bluetooth Devices',
+        description: 'List connected Bluetooth devices with battery info. Click to disconnect.',
+        gridSize: '4x4',
+        thumbnail: 'system-utils/bluetooth.svg',
+        fallbackIconName: 'bluetooth-active-symbolic',
     },
 });
 
@@ -381,7 +389,8 @@ export const STORE_CATEGORIES = Object.freeze({
         'todayHistory',
         'powerToggles',
         'calendarTasks',
-        'watermind'
+        'watermind',
+        'bluetoothDevices'
     ],
 });
 
@@ -505,6 +514,8 @@ function getStoreWidgetKey(widget) {
             return 'calendarTasks';
         case 'watermind':
             return 'watermind';
+        case 'bluetoothDevices':
+            return 'bluetoothDevices';
         default:
             return null;
     }

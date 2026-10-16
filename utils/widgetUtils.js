@@ -66,6 +66,7 @@ export const MIN_WIDGET_SIZES = Object.freeze({
     'worldAnalog': { minCols: 4, minRows: 4 },
     'calendarTasks': { minCols: 4, minRows: 4 },
     'watermind': { minCols: 4, minRows: 4 },
+    'bluetoothDevices': { minCols: 4, minRows: 4 },
 });
 
 /**
@@ -538,6 +539,7 @@ const SIZE_PRESETS = {
     'worldAnalog': [[4, 4], [5, 5], [6, 6]],
     'calendarTasks': [[4, 4], [5, 5], [6, 6]],
     'watermind': [[4, 4], [5, 5], [6, 6]],
+    'bluetoothDevices': [[4, 4], [5, 5], [6, 6]],
 };
 
 export const FREE_FLOW_SIZE_TYPES = ['image', 'slideshow'];
