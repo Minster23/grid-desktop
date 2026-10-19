@@ -3,7 +3,7 @@ import Clutter from 'gi://Clutter';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import { resolveExplicitFontFamily } from '../../utils/widgetUtils.js';
-import { buildControlsColumn, updateControlButtonScaling } from './controls.js';
+import { buildControlsColumn, updateControlButtonScaling, handlePlayPauseAction, connectControlButton} from './controls.js';
 import { resolveMusicPanelColors, resolveArtworkLayerStyle } from './cover.js';
 import { attachResponsiveScaler } from '../../shell/widgetUIUtils.js';
 import { isActorDestroyed } from '../../utils/actorLifecycle.js';
@@ -76,6 +76,9 @@ export function buildLargeLayout(config, state, width) {
         discActor = new St.Widget({
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
+            reactive: true,       // <-- Kattinthatóvá tesszük
+            can_focus: true,
+            track_hover: true,
         });
         discActor.set_pivot_point(0.5, 0.5);
 
@@ -228,6 +231,9 @@ export function buildLargeLayout(config, state, width) {
             } else {
                 stopSpinning();
             }
+        });
+        connectControlButton(discActor, state, () => {
+            handlePlayPauseAction(state);
         });
     }
 

@@ -280,6 +280,7 @@ export function buildControlsColumn(config, state, width = BASE_CONTROL_CONTAINE
         skipToPrevious(state.currentPlayer);
     });
 
+    /*
     connectControlButton(playPauseBtn, state, () => {
         const nextStatus = (state.playbackStatus === 'Playing') ? 'Paused' : 'Playing';
         state.playbackStatus = nextStatus;
@@ -290,10 +291,25 @@ export function buildControlsColumn(config, state, width = BASE_CONTROL_CONTAINE
         notifyPlayPauseAllInstances(state.currentPlayer);
         togglePlayPause(state.currentPlayer);
     });
+    */
+    connectControlButton(playPauseBtn, state, () => {
+        handlePlayPauseAction(state);
+    });
 
     connectControlButton(seekForwardBtn, state, () => {
         skipToNext(state.currentPlayer);
     });
 
     return controlsColumn;
+}
+
+export function handlePlayPauseAction(state) {
+    const nextStatus = (state.playbackStatus === 'Playing') ? 'Paused' : 'Playing';
+    state.playbackStatus = nextStatus;
+    if (state.onPlaybackStatusChanged) {
+        state.onPlaybackStatusChanged(nextStatus);
+    }
+
+    notifyPlayPauseAllInstances(state.currentPlayer);
+    togglePlayPause(state.currentPlayer);
 }

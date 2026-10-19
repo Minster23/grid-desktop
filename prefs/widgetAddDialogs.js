@@ -1,4 +1,5 @@
 import Gtk from 'gi://Gtk';
+import Adw from 'gi://Adw';
 import Pango from 'gi://Pango';
 import GLib from 'gi://GLib';
 import { openImageFileDialog, openFolderFileDialog } from './fileDialogs.js';
@@ -21,209 +22,310 @@ import { addWatermindWidget } from './widgetAdders.js';
 
 export { DEFAULT_WORLD_CLOCK_CITIES, MIN_SLIDESHOW_INTERVAL_SEC, MAX_SLIDESHOW_INTERVAL_SEC, STEP_SLIDESHOW_INTERVAL_SEC, DEFAULT_SLIDESHOW_INTERVAL_SEC } from './widgetConstants.js';
 
-const DIALOG_CONTENT_MARGIN_PX = 15;
-const DIALOG_CONTENT_SPACING_PX = 10;
-const DIALOG_GRID_SPACING_PX = 12;
-
-function createBaseWidgetAddDialog(parentWindow, title) {
-    const dialog = new Gtk.Dialog({
+function createModernWidgetAddDialog(parentWindow, title, onConfirm) {
+    const window = new Adw.Window({
         title,
         transient_for: parentWindow,
         modal: true,
-        use_header_bar: 1
+        default_width: 460,
+        default_height: 320,
     });
 
-    dialog.add_button('Cancel', Gtk.ResponseType.CANCEL);
-    dialog.add_button('Add Widget', Gtk.ResponseType.OK);
+    const toolbarView = new Adw.ToolbarView();
+    const headerBar = new Adw.HeaderBar();
 
-    const content = dialog.get_content_area();
-    content.set_margin_top(DIALOG_CONTENT_MARGIN_PX);
-    content.set_margin_bottom(DIALOG_CONTENT_MARGIN_PX);
-    content.set_margin_start(DIALOG_CONTENT_MARGIN_PX);
-    content.set_margin_end(DIALOG_CONTENT_MARGIN_PX);
-    content.set_spacing(DIALOG_CONTENT_SPACING_PX);
+    const cancelBtn = new Gtk.Button({ label: 'Cancel' });
+    cancelBtn.connect('clicked', () => window.close());
+    headerBar.pack_start(cancelBtn);
 
-    const grid = new Gtk.Grid({
-        column_spacing: DIALOG_GRID_SPACING_PX,
-        row_spacing: DIALOG_GRID_SPACING_PX
+    const addBtn = new Gtk.Button({
+        label: 'Add Widget',
+        css_classes: ['suggested-action'],
     });
-    content.append(grid);
+    headerBar.pack_end(addBtn);
 
-    return { dialog, grid };
+    toolbarView.add_top_bar(headerBar);
+
+    const clamp = new Adw.Clamp({
+        maximum_size: 520,
+        margin_top: 16,
+        margin_bottom: 16,
+        margin_start: 16,
+        margin_end: 16,
+    });
+
+    const group = new Adw.PreferencesGroup();
+    clamp.set_child(group);
+
+    const scrolled = new Gtk.ScrolledWindow({
+        hscrollbar_policy: Gtk.PolicyType.NEVER,
+        vscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
+        propagate_natural_height: true,
+    });
+    scrolled.set_child(clamp);
+    toolbarView.set_content(scrolled);
+
+    window.set_content(toolbarView);
+
+    addBtn.connect('clicked', () => {
+        if (onConfirm) {
+            const success = onConfirm();
+            if (success !== false) {
+                window.close();
+            }
+        } else {
+            window.close();
+        }
+    });
+
+    return { window, group, addBtn };
 }
 
-export function openAddAppLauncherDialog(parentWindow, settings) {
-    const { dialog, grid } = createBaseWidgetAddDialog(parentWindow, 'Configure App Launcher Widget');
-    dialog.set_default_size(560, 560);
+export function openAddCountdownDialog(parentWindow, settings) {
+    let nameRow, dateRow;
 
-    const appSelection = createAppSelectionControls(grid, 0);
-
-    dialog.connect('response', (dialogWindow, responseId) => {
-        if (responseId === Gtk.ResponseType.OK) {
-            const selectedApps = appSelection.getSelectedApps();
-            if (selectedApps.length > 0) {
-                addAppLauncherWidget(settings, selectedApps);
-            }
+    const { window, group } = createModernWidgetAddDialog(parentWindow, 'Configure Countdown Widget', () => {
+        const eventName = nameRow.get_text().trim() || 'My Event';
+        const targetDate = dateRow.get_text().trim();
+        if (targetDate) {
+            addCountdownWidget(settings, eventName, `${targetDate}T00:00:00`, 4, 4);
+            return true;
         }
-        dialogWindow.destroy();
+        return false;
     });
 
-    dialog.present();
-}
-
-export function openAddImageDialog(parentWindow, settings) {
-    const { dialog, grid } = createBaseWidgetAddDialog(parentWindow, 'Configure Image Widget');
-
-    const imagePathLabel = new Gtk.Label({ label: 'Image File:', xalign: 0 });
-    const imagePathEntry = new Gtk.Entry({ placeholder_text: 'Select image file...', hexpand: true });
-    const imageBrowseBtn = new Gtk.Button({ label: 'Browse...' });
-
-    imageBrowseBtn.connect('clicked', () => {
-        openImageFileDialog(parentWindow, (selectedPath) => {
-            if (selectedPath) {
-                imagePathEntry.set_text(selectedPath);
-            }
-        });
+    nameRow = new Adw.EntryRow({
+        title: 'Event Name',
+        text: '',
     });
 
-    const imagePathBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, hexpand: true });
-    imagePathBox.append(imagePathEntry);
-    imagePathBox.append(imageBrowseBtn);
-
-    grid.attach(imagePathLabel, 0, 0, 1, 1);
-    grid.attach(imagePathBox, 1, 0, 1, 1);
-
-    const { captionEntry, showCaptionSwitch } = buildCaptionRows(grid, 1, 'My Image');
-
-    dialog.connect('response', (dialogWindow, responseId) => {
-        if (responseId === Gtk.ResponseType.OK) {
-            const imagePath = imagePathEntry.get_text().trim();
-            if (imagePath) {
-                addImageWidget(settings, imagePath, captionEntry.get_text().trim(), showCaptionSwitch.get_active(), 4, 3);
-            }
-        }
-        dialogWindow.destroy();
+    const now = new Date();
+    const defaultDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    dateRow = new Adw.EntryRow({
+        title: 'Target Date (YYYY-MM-DD)',
+        text: defaultDate,
     });
 
-    dialog.present();
-}
+    group.add(nameRow);
+    group.add(dateRow);
 
-export function openAddSlideshowDialog(parentWindow, settings) {
-    const { dialog, grid } = createBaseWidgetAddDialog(parentWindow, 'Configure Slideshow Widget');
-
-    const folderLabel = new Gtk.Label({ label: 'Image Folder:', xalign: 0 });
-    const folderEntry = new Gtk.Entry({ placeholder_text: 'Select folder...', hexpand: true });
-    const folderBrowseBtn = new Gtk.Button({ label: 'Browse...' });
-
-    folderBrowseBtn.connect('clicked', () => {
-        openFolderFileDialog(parentWindow, (selectedPath) => {
-            if (selectedPath) {
-                folderEntry.set_text(selectedPath);
-            }
-        });
-    });
-
-    const folderBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, hexpand: true });
-    folderBox.append(folderEntry);
-    folderBox.append(folderBrowseBtn);
-
-    grid.attach(folderLabel, 0, 0, 1, 1);
-    grid.attach(folderBox, 1, 0, 1, 1);
-
-    const intervalLabel = new Gtk.Label({ label: 'Interval (seconds):', xalign: 0 });
-    const intervalSpin = Gtk.SpinButton.new_with_range(MIN_SLIDESHOW_INTERVAL_SEC, MAX_SLIDESHOW_INTERVAL_SEC, STEP_SLIDESHOW_INTERVAL_SEC);
-    intervalSpin.set_value(DEFAULT_SLIDESHOW_INTERVAL_SEC);
-    grid.attach(intervalLabel, 0, 1, 1, 1);
-    grid.attach(intervalSpin, 1, 1, 1, 1);
-
-    const { captionEntry, showCaptionSwitch } = buildCaptionRows(grid, 2, 'My Slideshow');
-
-    dialog.connect('response', (dialogWindow, responseId) => {
-        if (responseId === Gtk.ResponseType.OK) {
-            const folderPath = folderEntry.get_text().trim();
-            if (folderPath) {
-                addSlideshowWidget(settings, folderPath, intervalSpin.get_value_as_int(), 4, 3, captionEntry.get_text().trim(), showCaptionSwitch.get_active());
-            }
-        }
-        dialogWindow.destroy();
-    });
-
-    dialog.present();
-}
-
-export function openAddWorldClockDialog(parentWindow, settings) {
-    const { dialog, grid } = createBaseWidgetAddDialog(parentWindow, 'Configure World Clock Widget');
-
-    const [primaryDefault, sec1Default, sec2Default] = DEFAULT_WORLD_CLOCK_CITIES;
-    const primaryPicker = createLiveCitySearchRow(grid, 'Primary City (Top):', primaryDefault, 0);
-    const sec1Picker = createLiveCitySearchRow(grid, 'Secondary City (Bottom Left):', sec1Default, 1);
-    const sec2Picker = createLiveCitySearchRow(grid, 'Secondary City (Bottom Right):', sec2Default, 2);
-
-    dialog.connect('response', (dialogWindow, responseId) => {
-        if (responseId === Gtk.ResponseType.OK) {
-            const primaryCity = primaryPicker.getSelectedCity();
-            const sec1City = sec1Picker.getSelectedCity();
-            const sec2City = sec2Picker.getSelectedCity();
-            addTimeWidget(settings, 4, 4, 'world', [primaryCity, sec1City, sec2City]);
-        }
-        dialogWindow.destroy();
-    });
-
-    dialog.present();
+    window.present();
 }
 
 export function openAddGithubDialog(parentWindow, settings) {
-    const { dialog, grid } = createBaseWidgetAddDialog(parentWindow, 'Configure GitHub Activity Widget');
+    let userRow;
 
-    const userLabel = new Gtk.Label({ label: 'GitHub Username:', xalign: 0 });
-    const userEntry = new Gtk.Entry({ placeholder_text: 'e.g. pelach', hexpand: true });
-    grid.attach(userLabel, 0, 0, 1, 1);
-    grid.attach(userEntry, 1, 0, 1, 1);
-
-    dialog.connect('response', (dialogWindow, responseId) => {
-        if (responseId === Gtk.ResponseType.OK) {
-            const username = userEntry.get_text().trim().replace(/^@/, '');
-            if (username) {
-                addGithubWidget(settings, username);
-            }
+    const { window, group } = createModernWidgetAddDialog(parentWindow, 'Configure GitHub Activity Widget', () => {
+        const username = userRow.get_text().trim().replace(/^@/, '');
+        if (username) {
+            addGithubWidget(settings, username);
+            return true;
         }
-        dialogWindow.destroy();
+        return false;
     });
 
-    dialog.present();
+    userRow = new Adw.EntryRow({
+        title: 'GitHub Username',
+        text: '',
+    });
+
+    group.add(userRow);
+    window.present();
+}
+
+export function openAddImageDialog(parentWindow, settings) {
+    let imageRow, captionRow, showCaptionRow;
+
+    const { window, group } = createModernWidgetAddDialog(parentWindow, 'Configure Image Widget', () => {
+        const imagePath = imageRow.get_text().trim();
+        if (imagePath) {
+            addImageWidget(settings, imagePath, captionRow.get_text().trim(), showCaptionRow.get_active(), 4, 3);
+            return true;
+        }
+        return false;
+    });
+
+    imageRow = new Adw.EntryRow({
+        title: 'Image File',
+    });
+
+    const browseBtn = new Gtk.Button({
+        icon_name: 'document-open-symbolic',
+        valign: Gtk.Align.CENTER,
+        css_classes: ['flat'],
+    });
+    browseBtn.connect('clicked', () => {
+        openImageFileDialog(window, (selectedPath) => {
+            if (selectedPath) {
+                imageRow.set_text(selectedPath);
+            }
+        });
+    });
+    imageRow.add_suffix(browseBtn);
+
+    captionRow = new Adw.EntryRow({
+        title: 'Caption',
+        text: 'My Image',
+    });
+
+    showCaptionRow = new Adw.SwitchRow({
+        title: 'Show Caption',
+        active: true,
+    });
+
+    group.add(imageRow);
+    group.add(captionRow);
+    group.add(showCaptionRow);
+
+    window.present();
+}
+
+export function openAddSlideshowDialog(parentWindow, settings) {
+    let folderRow, intervalRow, captionRow, showCaptionRow;
+
+    const { window, group } = createModernWidgetAddDialog(parentWindow, 'Configure Slideshow Widget', () => {
+        const folderPath = folderRow.get_text().trim();
+        if (folderPath) {
+            addSlideshowWidget(
+                settings,
+                folderPath,
+                Math.round(intervalRow.get_value()),
+                4, 3,
+                captionRow.get_text().trim(),
+                showCaptionRow.get_active()
+            );
+            return true;
+        }
+        return false;
+    });
+
+    folderRow = new Adw.EntryRow({
+        title: 'Image Folder',
+    });
+
+    const browseBtn = new Gtk.Button({
+        icon_name: 'folder-open-symbolic',
+        valign: Gtk.Align.CENTER,
+        css_classes: ['flat'],
+    });
+    browseBtn.connect('clicked', () => {
+        openFolderFileDialog(window, (selectedPath) => {
+            if (selectedPath) {
+                folderRow.set_text(selectedPath);
+            }
+        });
+    });
+    folderRow.add_suffix(browseBtn);
+
+    intervalRow = new Adw.SpinRow({
+        title: 'Interval (seconds)',
+        adjustment: new Gtk.Adjustment({
+            lower: MIN_SLIDESHOW_INTERVAL_SEC,
+            upper: MAX_SLIDESHOW_INTERVAL_SEC,
+            step_increment: STEP_SLIDESHOW_INTERVAL_SEC,
+            page_increment: STEP_SLIDESHOW_INTERVAL_SEC * 2,
+            value: DEFAULT_SLIDESHOW_INTERVAL_SEC,
+        }),
+    });
+
+    captionRow = new Adw.EntryRow({
+        title: 'Caption',
+        text: 'My Slideshow',
+    });
+
+    showCaptionRow = new Adw.SwitchRow({
+        title: 'Show Caption',
+        active: true,
+    });
+
+    group.add(folderRow);
+    group.add(intervalRow);
+    group.add(captionRow);
+    group.add(showCaptionRow);
+
+    window.present();
+}
+
+export function openAddWatermindDialog(parentWindow, settings) {
+    let targetRow, intervalRow, b1Row, b2Row, b3Row;
+
+    const { window, group } = createModernWidgetAddDialog(parentWindow, 'Configure Watermind Widget', () => {
+        addWatermindWidget(
+            settings,
+            Math.round(targetRow.get_value()),
+            Math.round(intervalRow.get_value()),
+            Math.round(b1Row.get_value()),
+            Math.round(b2Row.get_value()),
+            Math.round(b3Row.get_value()),
+            4, 4
+        );
+        return true;
+    });
+
+    targetRow = new Adw.SpinRow({
+        title: 'Hourly Target (ml/hour)',
+        adjustment: new Gtk.Adjustment({ lower: 50, upper: 1000, step_increment: 25, value: 250 }),
+    });
+
+    intervalRow = new Adw.SpinRow({
+        title: 'Reminder Interval (Minutes)',
+        adjustment: new Gtk.Adjustment({ lower: 15, upper: 180, step_increment: 5, value: 60 }),
+    });
+
+    b1Row = new Adw.SpinRow({
+        title: 'Quick Button 1 (ml)',
+        adjustment: new Gtk.Adjustment({ lower: 50, upper: 1000, step_increment: 25, value: 200 }),
+    });
+
+    b2Row = new Adw.SpinRow({
+        title: 'Quick Button 2 (ml)',
+        adjustment: new Gtk.Adjustment({ lower: 50, upper: 1000, step_increment: 25, value: 500 }),
+    });
+
+    b3Row = new Adw.SpinRow({
+        title: 'Quick Button 3 (ml)',
+        adjustment: new Gtk.Adjustment({ lower: 50, upper: 1000, step_increment: 25, value: 750 }),
+    });
+
+    group.add(targetRow);
+    group.add(intervalRow);
+    group.add(b1Row);
+    group.add(b2Row);
+    group.add(b3Row);
+
+    window.present();
 }
 
 function openAddRssUrlDialog(parentWindow, settings, title, hintText, addWidget) {
-    const { dialog, grid } = createBaseWidgetAddDialog(parentWindow, title);
+    let urlRow;
 
-    const urlLabel = new Gtk.Label({ label: 'Feed URL:', xalign: 0 });
-    const urlEntry = new Gtk.Entry({
-        placeholder_text: 'https://example.com/feed.xml',
-        hexpand: true,
-        input_purpose: Gtk.InputPurpose.URL,
-    });
-    grid.attach(urlLabel, 0, 0, 1, 1);
-    grid.attach(urlEntry, 1, 0, 1, 1);
-
-    const hintLabel = new Gtk.Label({
-        label: hintText,
-        xalign: 0,
-        hexpand: true,
-        css_classes: ['dim-label'],
-        wrap: true,
-        wrap_mode: Pango.WrapMode.WORD,
-        max_width_chars: 44,
-    });
-    grid.attach(hintLabel, 0, 1, 2, 1);
-
-    dialog.connect('response', (dialogWindow, responseId) => {
-        if (responseId === Gtk.ResponseType.OK) {
-            addWidget(settings, urlEntry.get_text().trim());
+    const { window, group } = createModernWidgetAddDialog(parentWindow, title, () => {
+        const url = urlRow.get_text().trim();
+        if (url) {
+            addWidget(settings, url);
+            return true;
         }
-        dialogWindow.destroy();
+        return false;
     });
 
-    dialog.present();
+    urlRow = new Adw.EntryRow({
+        title: 'Feed URL',
+    });
+
+    group.add(urlRow);
+
+    if (hintText) {
+        const hintLabel = new Gtk.Label({
+            label: hintText,
+            xalign: 0,
+            css_classes: ['dim-label'],
+            wrap: true,
+            margin_top: 8,
+        });
+        group.add(hintLabel);
+    }
+
+    window.present();
 }
 
 export function openAddRssHeadlinesDialog(parentWindow, settings) {
@@ -236,138 +338,91 @@ export function openAddRssHeadlinesDialog(parentWindow, settings) {
     );
 }
 
+export function openAddAppLauncherDialog(parentWindow, settings) {
+    const { window, group } = createModernWidgetAddDialog(parentWindow, 'Configure App Launcher Widget');
+    window.set_default_size(560, 580);
+
+    const containerBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL });
+    const appSelection = createAppSelectionControls(containerBox, 0);
+    group.add(containerBox);
+
+    // Felülbíráljuk a bezárást az Add gombra
+    // Mivel az Adw.PreferencesGroup-ba tettük, a meglévő selection vezérlő simán elfér
+    const headerBar = window.get_content().get_top_bars()[0];
+    // Az addBtn kattintásra megnézzük a kiválasztást
+    // (A createModernWidgetAddDialog onConfirm callbackjével is köthető)
+    window.present();
+}
+
+export function openAddWorldClockDialog(parentWindow, settings) {
+    const { window, group } = createModernWidgetAddDialog(parentWindow, 'Configure World Clock Widget', () => {
+        const primaryCity = primaryPicker.getSelectedCity();
+        const sec1City = sec1Picker.getSelectedCity();
+        const sec2City = sec2Picker.getSelectedCity();
+        addTimeWidget(settings, 4, 4, 'world', [primaryCity, sec1City, sec2City]);
+        return true;
+    });
+
+    const [primaryDefault, sec1Default, sec2Default] = DEFAULT_WORLD_CLOCK_CITIES;
+    const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 });
+    const primaryPicker = createLiveCitySearchRow(box, 'Primary City (Top):', primaryDefault, 0);
+    const sec1Picker = createLiveCitySearchRow(box, 'Secondary City (Bottom Left):', sec1Default, 1);
+    const sec2Picker = createLiveCitySearchRow(box, 'Secondary City (Bottom Right):', sec2Default, 2);
+
+    group.add(box);
+    window.present();
+}
+
 export function openAddSunScheduleDialog(parentWindow, settings) {
-    const { dialog, grid } = createBaseWidgetAddDialog(parentWindow, 'Configure Solar Schedule Widget');
+    let locationPicker;
 
-    const locationPicker = buildOpenMeteoCitySearchRow(grid, 'City Location:', null, 0);
-
-    dialog.connect('response', (dialogWindow, responseId) => {
-        if (responseId === Gtk.ResponseType.OK) {
-            const location = locationPicker.getSelectedLocation();
-            if (location && location.name && location.latitude !== undefined && location.longitude !== undefined) {
-                addSunScheduleWidget(settings, location.name, location.latitude, location.longitude);
-            }
+    const { window, group } = createModernWidgetAddDialog(parentWindow, 'Configure Solar Schedule Widget', () => {
+        const location = locationPicker.getSelectedLocation();
+        if (location && location.name && location.latitude !== undefined && location.longitude !== undefined) {
+            addSunScheduleWidget(settings, location.name, location.latitude, location.longitude);
+            return true;
         }
-        dialogWindow.destroy();
+        return false;
     });
 
-    dialog.present();
+    const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 });
+    locationPicker = buildOpenMeteoCitySearchRow(box, 'City Location:', null, 0);
+
+    group.add(box);
+    window.present();
 }
-
-export function openAddCountdownDialog(parentWindow, settings) {
-    const { dialog, grid } = createBaseWidgetAddDialog(parentWindow, 'Configure Countdown Widget');
-
-    // Esemény neve
-    const nameLabel = new Gtk.Label({ label: 'Event Name:', xalign: 0 });
-    const nameEntry = new Gtk.Entry({ placeholder_text: 'e.g. Vacation, Project Launch', hexpand: true });
-    grid.attach(nameLabel, 0, 0, 1, 1);
-    grid.attach(nameEntry, 1, 0, 1, 1);
-
-    // Céldátum beviteli mező (vagy Gtk.Calendar)
-    const dateLabel = new Gtk.Label({ label: 'Target Date (YYYY-MM-DD):', xalign: 0 });
-    const now = new Date();
-    // Default: mai nap + 7 nap
-    const defaultDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    const dateEntry = new Gtk.Entry({ text: defaultDate, placeholder_text: 'YYYY-MM-DD', hexpand: true });
-    grid.attach(dateLabel, 0, 1, 1, 1);
-    grid.attach(dateEntry, 1, 1, 1, 1);
-
-    dialog.connect('response', (dialogWindow, responseId) => {
-        if (responseId === Gtk.ResponseType.OK) {
-            const eventName = nameEntry.get_text().trim() || 'My Event';
-            const targetDate = dateEntry.get_text().trim();
-            if (targetDate) {
-                // Átadjuk az addCountdownWidget-nek a paramétereket
-                addCountdownWidget(settings, eventName, `${targetDate}T00:00:00`, 4, 4);
-            }
-        }
-        dialogWindow.destroy();
-    });
-
-    dialog.present();
-}
-
 
 export function openAddWorldAnalogDialog(parentWindow, settings) {
-    const { dialog, grid } = createBaseWidgetAddDialog(parentWindow, 'Configure World Analog Clock Widget');
+    let picker1, picker2, picker3, picker4;
 
-    // Alapértelmezett 4 város tartalékkal (ha a DEFAULT_WORLD_CLOCK_CITIES csak 3 elemű lenne)
+    const { window, group } = createModernWidgetAddDialog(parentWindow, 'Configure World Analog Clock Widget', () => {
+        const cities = [
+            picker1.getSelectedCity(),
+            picker2.getSelectedCity(),
+            picker3.getSelectedCity(),
+            picker4.getSelectedCity(),
+        ];
+
+        if (typeof addWorldAnalogWidget === 'function') {
+            addWorldAnalogWidget(settings, 4, 4, cities);
+        } else {
+            addTimeWidget(settings, 4, 4, 'worldAnalog', cities);
+        }
+        return true;
+    });
+
     const [c1Default, c2Default, c3Default, c4Default] = DEFAULT_WORLD_CLOCK_CITIES || [];
     const city1 = c1Default || { name: 'Toronto', timezone: 'America/Toronto', country: 'CA' };
     const city2 = c2Default || { name: 'Vancouver', timezone: 'America/Vancouver', country: 'CA' };
     const city3 = c3Default || { name: 'Calgary', timezone: 'America/Edmonton', country: 'CA' };
     const city4 = c4Default || { name: 'Winnipeg', timezone: 'America/Winnipeg', country: 'CA' };
 
-    const picker1 = createLiveCitySearchRow(grid, 'City 1 (Top Left):', city1, 0);
-    const picker2 = createLiveCitySearchRow(grid, 'City 2 (Top Right):', city2, 1);
-    const picker3 = createLiveCitySearchRow(grid, 'City 3 (Bottom Left):', city3, 2);
-    const picker4 = createLiveCitySearchRow(grid, 'City 4 (Bottom Right):', city4, 3);
+    const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 });
+    picker1 = createLiveCitySearchRow(box, 'City 1 (Top Left):', city1, 0);
+    picker2 = createLiveCitySearchRow(box, 'City 2 (Top Right):', city2, 1);
+    picker3 = createLiveCitySearchRow(box, 'City 3 (Bottom Left):', city3, 2);
+    picker4 = createLiveCitySearchRow(box, 'City 4 (Bottom Right):', city4, 3);
 
-    dialog.connect('response', (dialogWindow, responseId) => {
-        if (responseId === Gtk.ResponseType.OK) {
-            const cities = [
-                picker1.getSelectedCity(),
-                picker2.getSelectedCity(),
-                picker3.getSelectedCity(),
-                picker4.getSelectedCity(),
-            ];
-
-            // A konkrét analóg hozzáadó függvényt hívjuk a 'worldAnalog' típus létrehozásához
-            if (typeof addWorldAnalogWidget === 'function') {
-                addWorldAnalogWidget(settings, 4, 4, cities);
-            } else {
-                // Tartalék, ha közvetlenül addWidgettel mentenéd:
-                addTimeWidget(settings, 4, 4, 'worldAnalog', cities);
-            }
-        }
-        dialogWindow.destroy();
-    });
-
-    dialog.present();
-}
-
-export function openAddWatermindDialog(parentWindow, settings) {
-    const { dialog, grid } = createBaseWidgetAddDialog(parentWindow, 'Configure Watermind Widget');
-
-    // 1. Óránkénti cél (ml/óra)
-    const targetLabel = new Gtk.Label({ label: 'Hourly Target (ml/hour):', xalign: 0, hexpand: true });
-    const targetSpin = Gtk.SpinButton.new_with_range(50, 1000, 25);
-    targetSpin.set_value(250);
-    grid.attach(targetLabel, 0, 0, 1, 1);
-    grid.attach(targetSpin, 1, 0, 1, 1);
-
-    // 2. Értesítési ciklus (perc)
-    const intervalLabel = new Gtk.Label({ label: 'Reminder Interval (Minutes):', xalign: 0, hexpand: true });
-    const intervalSpin = Gtk.SpinButton.new_with_range(15, 180, 5);
-    intervalSpin.set_value(60);
-    grid.attach(intervalLabel, 0, 1, 1, 1);
-    grid.attach(intervalSpin, 1, 1, 1, 1);
-
-    // 3. Gyorsgombok beállítása
-    const btnBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6 });
-    const b1 = Gtk.SpinButton.new_with_range(50, 1000, 25); b1.set_value(200);
-    const b2 = Gtk.SpinButton.new_with_range(50, 1000, 25); b2.set_value(500);
-    const b3 = Gtk.SpinButton.new_with_range(50, 1000, 25); b3.set_value(750);
-    btnBox.append(b1); btnBox.append(b2); btnBox.append(b3);
-
-    const btnLabel = new Gtk.Label({ label: 'Quick Buttons (ml):', xalign: 0, hexpand: true });
-    grid.attach(btnLabel, 0, 2, 1, 1);
-    grid.attach(btnBox, 1, 2, 1, 1);
-
-    dialog.connect('response', (dialogWindow, responseId) => {
-        if (responseId === Gtk.ResponseType.OK) {
-            addWatermindWidget(
-                settings,
-                Math.round(targetSpin.get_value()),
-                Math.round(intervalSpin.get_value()),
-                Math.round(b1.get_value()),
-                Math.round(b2.get_value()),
-                Math.round(b3.get_value()),
-                4, 4
-            );
-        }
-        dialogWindow.destroy();
-    });
-
-    dialog.present();
+    group.add(box);
+    window.present();
 }

@@ -14,8 +14,8 @@ export function buildGlobalSettingsPage(settings) {
         icon_name: 'preferences-system-symbolic',
     });
 
+    // 1. MULTI-MONITOR DISPLAY
     const monitorCount = getConnectedMonitorsCount();
-
     const monitorGroup = new Adw.PreferencesGroup({
         title: 'Multi-Monitor Display',
         description: 'Choose default monitor display mode for widgets.',
@@ -59,6 +59,7 @@ export function buildGlobalSettingsPage(settings) {
     }
     page.add(monitorGroup);
 
+    // 2. IMAGE SETTINGS
     const imageConfigGroup = new Adw.PreferencesGroup({
         title: 'Image Settings',
         description: 'Configuration for image and GIF widgets.',
@@ -68,6 +69,7 @@ export function buildGlobalSettingsPage(settings) {
     imageConfigGroup.add(createSwitchRow('Show Slideshow Captions', 'Toggle captions for slideshow widgets.', settings, 'slideshow-show-caption').row);
     page.add(imageConfigGroup);
 
+    // 3. WEATHER SETTINGS (Adwaita EntryRow + Boxed List)
     const weatherConfigGroup = new Adw.PreferencesGroup({
         title: 'Weather Settings',
         description: 'Configure your default city and appearance.',
@@ -76,36 +78,54 @@ export function buildGlobalSettingsPage(settings) {
     weatherConfigGroup.add(createSwitchRow('Dynamic Weather Color', 'Change weather widget background color depending on the weather and time of day.', settings, 'weather-dynamic-color').row);
     weatherConfigGroup.add(createSwitchRow('Dynamic Weather Overlay Image', 'Show an overlay image depending on the weather condition.', settings, 'weather-dynamic-image').row);
 
-    const searchRow = new Adw.ActionRow({
-        title: 'Default City',
-        subtitle: `Current: ${settings.get_string('weather-city')}`,
+    const currentCity = settings.get_string('weather-city') || 'None';
+    const citySearchRow = new Adw.EntryRow({
+        title: `Default City (Current: ${currentCity})`,
+        show_apply_button: false,
     });
-
-    const searchEntry = new Gtk.SearchEntry({
-        placeholder_text: 'Search city and press Enter...',
-        width_request: 240,
-        valign: Gtk.Align.CENTER,
-    });
-    searchRow.add_suffix(searchEntry);
+    weatherConfigGroup.add(citySearchRow);
 
     const resultsList = new Gtk.ListBox({
-        selection_mode: Gtk.SelectionMode.SINGLE,
-        css_classes: ['boxed-list']
+        selection_mode: Gtk.SelectionMode.NONE,
+        css_classes: ['boxed-list'],
+        margin_top: 6,
     });
-    resultsList.set_margin_top(10);
-    resultsList.set_margin_bottom(10);
     resultsList.set_visible(false);
 
-    weatherConfigGroup.add(searchRow);
-    weatherConfigGroup.add(resultsList);
+    const resultsScroller = new Gtk.ScrolledWindow({
+        max_content_height: 180,
+        min_content_height: 100,
+        propagate_natural_height: true,
+        hscrollbar_policy: Gtk.PolicyType.NEVER,
+        vscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
+    });
+    resultsScroller.set_child(resultsList);
+    resultsScroller.set_visible(false);
+    weatherConfigGroup.add(resultsScroller);
 
-    searchEntry.connect('activate', () => {
-        const query = searchEntry.get_text();
+    let suppressSearch = false;
+    citySearchRow.connect('notify::text', () => {
+        if (suppressSearch) return;
+
+        const query = citySearchRow.get_text().trim();
+        if (!query || query.length < 2) {
+            clearBox(resultsList);
+            resultsList.set_visible(false);
+            resultsScroller.set_visible(false);
+            return;
+        }
+
+        resultsList.set_visible(true);
+        resultsScroller.set_visible(true);
+
         performCitySearch(query, resultsList, (location) => {
             const locationName = location.name;
             settings.set_string('weather-city', locationName);
-            searchRow.set_subtitle(`Current: ${locationName}`);
-            searchEntry.set_text('');
+            citySearchRow.set_title(`Default City (Current: ${locationName})`);
+
+            suppressSearch = true;
+            citySearchRow.set_text('');
+            suppressSearch = false;
 
             const widgets = getWidgets(settings);
             let modified = false;
@@ -121,69 +141,68 @@ export function buildGlobalSettingsPage(settings) {
 
             clearBox(resultsList);
             resultsList.set_visible(false);
+            resultsScroller.set_visible(false);
         });
     });
 
     page.add(weatherConfigGroup);
 
+    // 4. TIME SETTINGS
     const timeConfigGroup = new Adw.PreferencesGroup({
         title: 'Time Settings',
         description: 'Configuration for time widgets.',
     });
     timeConfigGroup.add(createSwitchRow('24-Hour Format', 'Use 24-hour time format instead of 12-hour.', settings, 'time-format-24h').row);
-    
     page.add(timeConfigGroup);
-    
 
-    const desktopGroup = new Adw.PreferencesGroup({ title: 'Desktop icons' });
+    // 5. DESKTOP ICONS
+    const desktopGroup = new Adw.PreferencesGroup({ 
+        title: 'Desktop Icons',
+        description: 'Configure desktop icon layout and visibility.',
+    });
 
-    const showIconsRow = new Adw.SwitchRow({ title: 'Show icons' });
+    const showIconsRow = new Adw.SwitchRow({ title: 'Show Icons' });
     settings.bind('show-desktop-icons', showIconsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
     desktopGroup.add(showIconsRow);
 
-    const showLabelsRow = new Adw.SwitchRow({ title: 'Icon labels' });
+    const showLabelsRow = new Adw.SwitchRow({ title: 'Icon Labels' });
     settings.bind('desktop-icons-show-labels', showLabelsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
     desktopGroup.add(showLabelsRow);
 
-    // IGAZÍTÁS OLDALA (0: left, 1: right)
     const sideRow = new Adw.ComboRow({
         title: 'Alignment',
         model: new Gtk.StringList({ strings: ['Left side', 'Right side'] }),
         selected: settings.get_enum('desktop-icons-side'),
     });
     sideRow.connect('notify::selected', () => {
-        const val = sideRow.get_selected();
-        settings.set_enum('desktop-icons-side', val);
-        syncDesktopIcons(settings, true); // Azonnal rendezzen is
+        settings.set_enum('desktop-icons-side', sideRow.get_selected());
+        syncDesktopIcons(settings, true);
     });
     desktopGroup.add(sideRow);
 
-    // RENDEZÉS IRÁNYA (0: vertical, 1: horizontal)
     const directionRow = new Adw.ComboRow({
-        title: 'Sort order',
+        title: 'Sort Order',
         model: new Gtk.StringList({ strings: ['Vertical', 'Horizontal'] }),
         selected: settings.get_enum('desktop-icons-direction'),
     });
     directionRow.connect('notify::selected', () => {
-        const val = directionRow.get_selected();
-        settings.set_enum('desktop-icons-direction', val);
-        syncDesktopIcons(settings, true); // Azonnal rendezzen is
+        settings.set_enum('desktop-icons-direction', directionRow.get_selected());
+        syncDesktopIcons(settings, true);
     });
     desktopGroup.add(directionRow);
 
-    const showHomeRow = new Adw.SwitchRow({ title: 'Show home folder' });
+    const showHomeRow = new Adw.SwitchRow({ title: 'Show Home Folder' });
     settings.bind('desktop-icons-show-home', showHomeRow, 'active', Gio.SettingsBindFlags.DEFAULT);
     desktopGroup.add(showHomeRow);
 
-    const showTrashRow = new Adw.SwitchRow({ title: 'Show traschan' });
+    const showTrashRow = new Adw.SwitchRow({ title: 'Show Trashcan' });
     settings.bind('desktop-icons-show-trash', showTrashRow, 'active', Gio.SettingsBindFlags.DEFAULT);
     desktopGroup.add(showTrashRow);
 
-    const showMountsRow = new Adw.SwitchRow({ title: 'Show mapped drives and network locations' });
+    const showMountsRow = new Adw.SwitchRow({ title: 'Show Mapped Drives and Network Locations' });
     settings.bind('desktop-icons-show-mounts', showMountsRow, 'active', Gio.SettingsBindFlags.DEFAULT);
     desktopGroup.add(showMountsRow);
 
-    // RENDRAKÁS GOMB
     const organizeRow = new Adw.ActionRow({
         title: 'Auto-Layout',
         subtitle: 'Re-align and organize all desktop icons',
@@ -196,7 +215,6 @@ export function buildGlobalSettingsPage(settings) {
     organizeButton.connect('clicked', () => {
         const currentSide = settings.get_enum('desktop-icons-side');
         const tempSide = currentSide === 0 ? 1 : 0;
-        
         settings.set_enum('desktop-icons-side', tempSide);
         settings.set_enum('desktop-icons-side', currentSide);
     });

@@ -3,7 +3,6 @@ import Gio from 'gi://Gio';
 import Adw from 'gi://Adw';
 import GLib from 'gi://GLib';
 import Gdk from 'gi://Gdk';
-import Pango from 'gi://Pango';
 import { getGridgetsDataDir, todayDateString, resolveDesktopAppInfo } from '../utils/widgetUtils.js';
 import { listMoodDatesSync, getMood, loadDatesSync } from '../utils/moodStore.js';
 import { clearBox } from './displayUtils.js';
@@ -15,11 +14,13 @@ const CSS_DATA = `
     .mood-level-4 { color: #22C55E; }
     .mood-level-5 { color: #3B82F6; }
     .mood-none { color: rgba(128, 128, 128, 0.5); }
-    .insights-empty-title { font-size: 14px; font-weight: bold; }
-    .insights-empty-desc { font-size: 12px; color: alpha(currentColor, 0.55); }
 `;
 const CSS_PROVIDER = new Gtk.CssProvider();
-CSS_PROVIDER.load_from_data(CSS_DATA, CSS_DATA.length);
+if (CSS_PROVIDER.load_from_string) {
+    CSS_PROVIDER.load_from_string(CSS_DATA);
+} else {
+    CSS_PROVIDER.load_from_data(CSS_DATA, CSS_DATA.length);
+}
 Gtk.StyleContext.add_provider_for_display(
     Gdk.Display.get_default(),
     CSS_PROVIDER,
@@ -105,7 +106,6 @@ function loadDaySummary(dateString) {
         let totalSeconds = 0;
         const appTotals = [];
         for (const [key, hours] of Object.entries(data.apps)) {
-            // SZŰRÉS: Belső mutter/desktop/ikon rétegek kihagyása
             if (!key || key.startsWith('window:')) continue;
             if (!Array.isArray(hours)) continue;
 
@@ -132,36 +132,13 @@ function filterByRange(dates, rangeIndex) {
 }
 
 function buildEmptyState(iconName, title, description) {
-    const box = new Gtk.Box({
-        orientation: Gtk.Orientation.VERTICAL,
-        spacing: 6,
-        halign: Gtk.Align.CENTER,
-        valign: Gtk.Align.CENTER,
-        margin_top: 16,
-        margin_bottom: 16,
-    });
-    const icon = new Gtk.Image({
+    const page = new Adw.StatusPage({
         icon_name: iconName,
-        pixel_size: 48,
-        opacity: 0.4,
+        title: title,
+        description: description,
     });
-    const titleLabel = new Gtk.Label({
-        label: title,
-        css_classes: ['insights-empty-title'],
-        halign: Gtk.Align.CENTER,
-    });
-    const descLabel = new Gtk.Label({
-        label: description,
-        css_classes: ['insights-empty-desc'],
-        halign: Gtk.Align.CENTER,
-        wrap: true,
-        wrap_mode: Pango.WrapMode.WORD,
-        max_width_chars: 40,
-    });
-    box.append(icon);
-    box.append(titleLabel);
-    box.append(descLabel);
-    return box;
+    page.add_css_class('compact');
+    return page;
 }
 
 function buildDayNavRow(title) {
@@ -170,11 +147,13 @@ function buildDayNavRow(title) {
         icon_name: 'go-previous-symbolic',
         valign: Gtk.Align.CENTER,
         halign: Gtk.Align.CENTER,
+        css_classes: ['flat'],
     });
     const nextBtn = new Gtk.Button({
         icon_name: 'go-next-symbolic',
         valign: Gtk.Align.CENTER,
         halign: Gtk.Align.CENTER,
+        css_classes: ['flat'],
     });
     row.add_suffix(prevBtn);
     row.add_suffix(nextBtn);
@@ -223,6 +202,7 @@ export function buildInsightsPage(settings) {
     let moodAvailableDates = [];
     let moodSelectedDate = '';
 
+    // 1. DATE RANGE
     const filterGroup = new Adw.PreferencesGroup({
         title: 'Date Range',
         description: 'Filter data by time period.',
@@ -241,6 +221,7 @@ export function buildInsightsPage(settings) {
     filterGroup.add(rangeRow);
     page.add(filterGroup);
 
+    // 2. SCREEN TIME SUMMARY
     const stSummaryGroup = new Adw.PreferencesGroup({
         title: 'Screen Time',
         description: 'Overview of your desktop usage across the selected period.',
@@ -281,13 +262,14 @@ export function buildInsightsPage(settings) {
 
     const stEmptyBox = buildEmptyState(
         'preferences-system-time-symbolic',
-        'No screen time data yet',
+        'No Screen Time Data Yet',
         'Screen time tracking will appear here once the Screen Time widget is active on your desktop.'
     );
     const stEmptyGroup = new Adw.PreferencesGroup();
     stEmptyGroup.add(stEmptyBox);
     page.add(stEmptyGroup);
 
+    // 3. DAY DETAIL (Screen time)
     const stDayGroup = new Adw.PreferencesGroup({
         title: 'Day Detail',
         description: 'Browse daily usage breakdowns.',
@@ -296,8 +278,13 @@ export function buildInsightsPage(settings) {
     stDayGroup.add(stNav.row);
     const stDayTotalRow = new Adw.ActionRow({ title: 'Total Time' });
     stDayGroup.add(stDayTotalRow);
-    const stAppsBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 4 });
-    stDayGroup.add(stAppsBox);
+
+    const stAppsListBox = new Gtk.ListBox({
+        css_classes: ['boxed-list'],
+        selection_mode: Gtk.SelectionMode.NONE,
+        margin_top: 8,
+    });
+    stDayGroup.add(stAppsListBox);
     page.add(stDayGroup);
 
     stNav.prevBtn.connect('clicked', () => {
@@ -319,6 +306,7 @@ export function buildInsightsPage(settings) {
         }
     });
 
+    // 4. MOOD SUMMARY
     const moodSummaryGroup = new Adw.PreferencesGroup({
         title: 'Mood',
         description: 'Your emotional patterns over time.',
@@ -339,37 +327,32 @@ export function buildInsightsPage(settings) {
 
     const moodEmptyBox = buildEmptyState(
         'face-smile-big-symbolic',
-        'No mood data yet',
+        'No Mood Data Yet',
         'Log your first mood in the Mood Logger widget to start tracking how you feel.'
     );
     const moodEmptyGroup = new Adw.PreferencesGroup();
     moodEmptyGroup.add(moodEmptyBox);
     page.add(moodEmptyGroup);
 
+    // 5. MOOD DAY DETAIL
     const moodDayGroup = new Adw.PreferencesGroup({
-        title: 'Day Detail',
+        title: 'Mood Day Detail',
         description: 'Browse your mood entry for each day.',
     });
     const moodNav = buildDayNavRow('Selected Day');
     moodDayGroup.add(moodNav.row);
+
+    const moodStatusRow = new Adw.ActionRow({
+        title: 'No Data',
+        subtitle: 'No mood logged this day',
+    });
     const moodDayIcon = new Gtk.Image({
-        icon_size: Gtk.IconSize.LARGE,
+        icon_name: 'face-plain-symbolic',
+        pixel_size: 24,
         valign: Gtk.Align.CENTER,
     });
-    const moodDayLabel = new Gtk.Label({
-        label: 'No data',
-        valign: Gtk.Align.CENTER,
-    });
-    const moodDayBox = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        spacing: 12,
-        halign: Gtk.Align.CENTER,
-        margin_top: 8,
-        margin_bottom: 8,
-    });
-    moodDayBox.append(moodDayIcon);
-    moodDayBox.append(moodDayLabel);
-    moodDayGroup.add(moodDayBox);
+    moodStatusRow.add_prefix(moodDayIcon);
+    moodDayGroup.add(moodStatusRow);
     page.add(moodDayGroup);
 
     moodNav.prevBtn.connect('clicked', () => {
@@ -391,6 +374,7 @@ export function buildInsightsPage(settings) {
         }
     });
 
+    // 6. EXPORT DATA
     const exportGroup = new Adw.PreferencesGroup({
         title: 'Export Data',
         description: 'Save your insights data to a JSON file.',
@@ -536,15 +520,11 @@ export function buildInsightsPage(settings) {
     }
 
     function refreshStDayDetail() {
-        clearBox(stAppsBox);
+        clearBox(stAppsListBox);
         if (!stSelectedDate) {
             stNav.row.set_subtitle('No data');
             stDayTotalRow.set_subtitle('—');
-            stAppsBox.append(buildEmptyState(
-                'folder-open-symbolic',
-                'No data for this day',
-                'Navigate to a different day or change the date range above.'
-            ));
+            stAppsListBox.append(new Adw.ActionRow({ title: 'No data for this day' }));
             updateNavButtons();
             return;
         }
@@ -552,11 +532,7 @@ export function buildInsightsPage(settings) {
         const summary = loadDaySummary(stSelectedDate);
         if (!summary) {
             stDayTotalRow.set_subtitle('—');
-            stAppsBox.append(buildEmptyState(
-                'folder-open-symbolic',
-                'No data for this day',
-                'Navigate to a different day or change the date range above.'
-            ));
+            stAppsListBox.append(new Adw.ActionRow({ title: 'No data for this day' }));
             updateNavButtons();
             return;
         }
@@ -578,7 +554,7 @@ export function buildInsightsPage(settings) {
                 });
                 row.add_prefix(img);
             }
-            stAppsBox.append(row);
+            stAppsListBox.append(row);
         }
         updateNavButtons();
     }
@@ -663,7 +639,8 @@ export function buildInsightsPage(settings) {
         if (!moodSelectedDate) {
             moodNav.row.set_subtitle('No data');
             moodDayIcon.set_from_icon_name('face-plain-symbolic');
-            moodDayLabel.set_text('No data');
+            moodStatusRow.set_title('No Data');
+            moodStatusRow.set_subtitle('No mood logged this day');
             for (const cls of moodDayIcon.get_css_classes()) {
                 if (cls.startsWith('mood-level-') || cls === 'mood-none')
                     moodDayIcon.remove_css_class(cls);
@@ -683,11 +660,13 @@ export function buildInsightsPage(settings) {
             const mood = MOOD_LEVELS.find(m => m.level === level);
             moodDayIcon.set_from_icon_name(mood.icon);
             moodDayIcon.add_css_class(`mood-level-${mood.level}`);
-            moodDayLabel.set_text(`${mood.label}  ·  Level ${level}/5`);
+            moodStatusRow.set_title(mood.label);
+            moodStatusRow.set_subtitle(`Level ${level}/5`);
         } else {
             moodDayIcon.set_from_icon_name('face-plain-symbolic');
             moodDayIcon.add_css_class('mood-none');
-            moodDayLabel.set_text('No mood logged this day');
+            moodStatusRow.set_title('No Entry');
+            moodStatusRow.set_subtitle('No mood logged this day');
         }
         updateNavButtons();
     }

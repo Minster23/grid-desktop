@@ -24,34 +24,62 @@ export function createNormalizedFontDescription(currentFont) {
     return fontDesc;
 }
 
-function createColorRow(title, subtitle, settings, key, defaultVal = DEFAULT_FG_COLOR) {
+export function createColorRow(title, subtitle, settings, key, defaultVal = DEFAULT_FG_COLOR) {
     const row = new Adw.ActionRow({ 
         title, 
         subtitle,
     });
-    
-    const btn = new Gtk.ColorButton({ 
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.CENTER,
-    });
-    
+
     const rgba = new Gdk.RGBA();
     const parsed = rgba.parse(settings.get_string(key) || defaultVal);
-    if (!parsed)
+    if (!parsed) {
         rgba.parse(defaultVal);
-    btn.set_rgba(rgba);
-    btn.connect('color-set', () => {
-        settings.set_string(key, btn.get_rgba().to_string());
-    });
+    }
+
+    let colorBtn;
+
+    // Modern GNOME 48 (GTK 4.10+) felület: Gtk.ColorDialogButton
+    if (Gtk.ColorDialogButton && Gtk.ColorDialog) {
+        const dialog = new Gtk.ColorDialog({
+            with_alpha: true,
+        });
+
+        colorBtn = new Gtk.ColorDialogButton({
+            dialog: dialog,
+            rgba: rgba,
+            valign: Gtk.Align.CENTER,
+            halign: Gtk.Align.CENTER,
+        });
+
+        colorBtn.connect('notify::rgba', () => {
+            const newRgba = colorBtn.get_rgba();
+            if (newRgba) {
+                settings.set_string(key, newRgba.to_string());
+            }
+        });
+    } else {
+        // Fallback régebbi verziókhoz
+        colorBtn = new Gtk.ColorButton({ 
+            valign: Gtk.Align.CENTER,
+            halign: Gtk.Align.CENTER,
+            rgba: rgba,
+            use_alpha: true,
+        });
+
+        colorBtn.connect('color-set', () => {
+            settings.set_string(key, colorBtn.get_rgba().to_string());
+        });
+    }
 
     const box = new Gtk.Box({
         valign: Gtk.Align.CENTER,
         halign: Gtk.Align.CENTER,
         baseline_position: Gtk.BaselinePosition.CENTER,
     });
-    box.append(btn);
+    box.append(colorBtn);
 
     row.add_suffix(box);
+    row.set_activatable_widget(colorBtn);
     return row;
 }
 
@@ -77,7 +105,6 @@ export function createOpacityRow(title, subtitle, settings, key) {
     });
     scale.set_digits(0);
 
-    // KÖZVETLEN MENTÉS A CSÚSZTATÁSKOR:
     adjustment.connect('value-changed', () => {
         const val = Math.round(adjustment.get_value());
         if (settings.get_int(key) !== val) {
@@ -115,7 +142,7 @@ export function buildGlobalAestheticsGroup(settings) {
 
     let fontBtn;
 
-    // 1. Modern GNOME 48 (GTK 4.10+) felület: Gtk.FontDialogButton
+    // Modern GNOME 48 (GTK 4.10+) felület: Gtk.FontDialogButton
     if (Gtk.FontDialogButton && Gtk.FontDialog) {
         const dialog = new Gtk.FontDialog();
         dialog.set_filter(null);
@@ -139,7 +166,7 @@ export function buildGlobalAestheticsGroup(settings) {
             }
         });
     } else {
-        // 2. Fallback régebbi verziókhoz:
+        // Fallback régebbi verziókhoz
         fontBtn = new Gtk.FontButton({ 
             valign: Gtk.Align.CENTER,
             halign: Gtk.Align.CENTER,
@@ -166,6 +193,7 @@ export function buildGlobalAestheticsGroup(settings) {
     fontBox.append(fontBtn);
 
     fontRow.add_suffix(fontBox);
+    fontRow.set_activatable_widget(fontBtn);
     group.add(fontRow);
 
     return group;

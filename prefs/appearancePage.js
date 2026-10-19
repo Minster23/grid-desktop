@@ -11,7 +11,7 @@ export function buildAppearancePage(settings) {
         icon_name: 'preferences-desktop-appearance-symbolic',
     });
 
-    // 1. SYSTEM THEME CSOPORT (Legfelül, Dash-to-dock mintára)
+    // 1. SYSTEM THEME CSOPORT
     const systemGroup = new Adw.PreferencesGroup({
         title: 'System Theme',
         description: 'Choose whether widgets follow GNOME system colors or custom aesthetics.',
@@ -69,18 +69,37 @@ export function buildAppearancePage(settings) {
         title: 'Accent Color Override',
         subtitle: 'Manually set the accent color. Leave empty to use the system or theme default.',
     });
-    const accentBtn = new Gtk.ColorButton({
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.CENTER,
-    });
 
     const accentRgba = new Gdk.RGBA();
     const currentAccent = settings.get_string('accent-color-override');
     accentRgba.parse(currentAccent || '#3584e4');
-    accentBtn.set_rgba(accentRgba);
-    accentBtn.connect('color-set', () => {
-        settings.set_string('accent-color-override', accentBtn.get_rgba().to_string());
-    });
+
+    let accentBtn;
+    if (Gtk.ColorDialogButton && Gtk.ColorDialog) {
+        const dialog = new Gtk.ColorDialog({ with_alpha: false });
+        accentBtn = new Gtk.ColorDialogButton({
+            dialog,
+            rgba: accentRgba,
+            valign: Gtk.Align.CENTER,
+            halign: Gtk.Align.CENTER,
+        });
+        accentBtn.connect('notify::rgba', () => {
+            const newRgba = accentBtn.get_rgba();
+            if (newRgba) {
+                settings.set_string('accent-color-override', newRgba.to_string());
+            }
+        });
+    } else {
+        accentBtn = new Gtk.ColorButton({
+            valign: Gtk.Align.CENTER,
+            halign: Gtk.Align.CENTER,
+            rgba: accentRgba,
+            use_alpha: false,
+        });
+        accentBtn.connect('color-set', () => {
+            settings.set_string('accent-color-override', accentBtn.get_rgba().to_string());
+        });
+    }
 
     const accentBox = new Gtk.Box({
         valign: Gtk.Align.CENTER,
@@ -90,6 +109,7 @@ export function buildAppearancePage(settings) {
     accentBox.append(accentBtn);
 
     accentRow.add_suffix(accentBox);
+    accentRow.set_activatable_widget(accentBtn);
     themeGroup.add(accentRow);
 
     page.add(themeGroup);
@@ -98,7 +118,7 @@ export function buildAppearancePage(settings) {
     const aestheticsGroup = buildGlobalAestheticsGroup(settings);
     page.add(aestheticsGroup);
 
-    // DYNAMIC SENSITIVITY: Ha a system theme be van kapcsolva, letiltjuk mindkettőt!
+    // Dinamikus érzékenység: ha a rendszer téma él, a manuális színek tiltva vannak
     const updateSensitiveness = () => {
         const followSystem = settings.get_boolean('follow-system-theme');
         themeGroup.set_sensitive(!followSystem);
@@ -108,7 +128,7 @@ export function buildAppearancePage(settings) {
     updateSensitiveness();
     followSystemSwitch.row.connect('notify::active', updateSensitiveness);
 
-    // 4. DESKTOP GRID LAYOUT CSOPORT (Ez mindig elérhető)
+    // 4. DESKTOP GRID LAYOUT CSOPORT
     const gridGroup = new Adw.PreferencesGroup({
         title: 'Desktop Grid Layout',
         description: 'Configure desktop grid layout visibility.',

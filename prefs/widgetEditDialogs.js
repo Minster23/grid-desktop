@@ -1,4 +1,5 @@
 import Gtk from 'gi://Gtk';
+import Adw from 'gi://Adw';
 import { getWidgets, saveWidgets } from '../utils/widgetUtils.js';
 import {
     buildStandardSettings,
@@ -27,85 +28,87 @@ import {
 export function buildWidgetEditPanel(parentWindow, widget, settings, onSavedCallback) {
     const box = new Gtk.Box({
         orientation: Gtk.Orientation.VERTICAL,
-        spacing: 10,
-        margin_top: 10,
-        margin_bottom: 10,
+        spacing: 12,
+        margin_top: 8,
+        margin_bottom: 12,
         margin_start: 12,
         margin_end: 12,
     });
 
-    const grid = new Gtk.Grid({ column_spacing: 12, row_spacing: 10 });
-    box.append(grid);
+    // A nyers Gtk.Grid helyett egy Adw.PreferencesGroup fogja össze a beállítási kártyákat
+    const group = new Adw.PreferencesGroup();
+    box.append(group);
 
     const saveHandlers = [];
-    let rowIdx = 0;
 
-    rowIdx = buildStandardSettings(grid, rowIdx, widget, settings, saveHandlers);
+    // Általános beállítások (pozíció, méret, monitor, egyedi színek stb.)
+    buildStandardSettings(group, widget, settings, saveHandlers);
 
+    // Widget-specifikus beállítások
     switch (widget.type) {
         case 'rss-headlines':
         case 'rss-feed':
-            rowIdx = buildRssSettings(grid, rowIdx, widget, saveHandlers);
+            buildRssSettings(group, widget, saveHandlers);
             break;
         case 'sun-schedule':
-            rowIdx = buildSunScheduleSettings(grid, rowIdx, widget, saveHandlers);
+            buildSunScheduleSettings(group, widget, saveHandlers);
             break;
         case 'weather':
         case 'weather_bars':
-            rowIdx = buildWeatherSettings(grid, rowIdx, widget, settings, saveHandlers);
+            buildWeatherSettings(group, widget, settings, saveHandlers);
             break;
         case 'weather_cards':
-            rowIdx = buildWeatherCardsSettings(grid, rowIdx, widget, saveHandlers);
+            buildWeatherCardsSettings(group, widget, saveHandlers);
             break;
         case 'time':
-            rowIdx = buildTimeSettings(grid, rowIdx, widget, settings, saveHandlers);
+            buildTimeSettings(group, widget, settings, saveHandlers);
             break;
         case 'music':
-            rowIdx = buildMusicSettings(grid, rowIdx, widget, saveHandlers);
+            buildMusicSettings(group, widget, saveHandlers);
             break;
         case 'pomodoro-focus':
-            rowIdx = buildPomodoroSettings(grid, rowIdx, widget, saveHandlers);
+            buildPomodoroSettings(group, widget, saveHandlers);
             break;
         case 'app-launcher':
-            rowIdx = buildAppLauncherSettings(grid, rowIdx, widget, saveHandlers);
+            buildAppLauncherSettings(group, widget, saveHandlers);
             break;
         case 'slideshow':
-            rowIdx = buildSlideshowSettings(grid, rowIdx, widget, settings, saveHandlers);
+            buildSlideshowSettings(group, widget, settings, saveHandlers);
             break;
         case 'gif':
-            rowIdx = buildGifSettings(grid, rowIdx, widget, saveHandlers);
+            buildGifSettings(group, widget, saveHandlers);
             break;
         case 'image':
-            rowIdx = buildImageSettings(grid, rowIdx, widget, settings, saveHandlers, parentWindow);
+            buildImageSettings(group, widget, settings, saveHandlers, parentWindow);
             break;
         case 'system-info':
-            rowIdx = buildSystemInfoSettings(grid, rowIdx, widget, saveHandlers);
+            buildSystemInfoSettings(group, widget, saveHandlers);
             break;
         case 'currency-tracker':
-            rowIdx = buildCurrencyTrackerSettings(grid, rowIdx, widget, saveHandlers);
+            buildCurrencyTrackerSettings(group, widget, saveHandlers);
             break;
         case 'timer': 
-            rowIdx = buildTimerSettings(grid, rowIdx, widget, saveHandlers);
+            buildTimerSettings(group, widget, saveHandlers);
             break;
         case 'countdown': 
-            rowIdx = buildCountdownSettings(grid, rowIdx, widget, saveHandlers);
+            buildCountdownSettings(group, widget, saveHandlers);
             break;
         case 'ping-monitor':
-            rowIdx = buildPingSettings(grid, rowIdx, widget, saveHandlers);
+            buildPingSettings(group, widget, saveHandlers);
             break;
         case 'cryptoWidget':
-            rowIdx = buildCryptoTrackerSettings(grid, rowIdx, widget, saveHandlers);
+            buildCryptoTrackerSettings(group, widget, saveHandlers);
             break;
         case 'todayHistory':
-            rowIdx = buildHistoryTrackerSettings(grid, rowIdx, widget, saveHandlers);
+            buildHistoryTrackerSettings(group, widget, saveHandlers);
             break;
         case 'storage-bar':
         case 'storageBar':
         case 'storage_bar':
-            rowIdx = buildStorageBarSettings(grid, rowIdx, widget, saveHandlers, parentWindow);
+            buildStorageBarSettings(group, widget, saveHandlers, parentWindow);
             break;
         case 'watermind':
-            rowIdx = buildWatermindSettings(grid, rowIdx, widget, saveHandlers);
+            buildWatermindSettings(group, widget, saveHandlers);
             break;
     }
 
@@ -113,7 +116,7 @@ export function buildWidgetEditPanel(parentWindow, widget, settings, onSavedCall
         label: 'Save Changes',
         css_classes: ['suggested-action', 'pill'],
         halign: Gtk.Align.END,
-        margin_top: 10,
+        margin_top: 8,
     });
 
     saveButton.connect('clicked', () => {

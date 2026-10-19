@@ -1,58 +1,73 @@
 import Gtk from 'gi://Gtk';
-import Pango from 'gi://Pango';
+import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 
-export function buildCaptionRows(grid, startRow, placeholderText) {
-    let rowIdx = startRow;
-
-    const captionLabel = new Gtk.Label({ label: 'Caption:', xalign: 0, hexpand: true });
-    const captionEntry = new Gtk.Entry({
-        placeholder_text: placeholderText || 'Enter caption...',
-        hexpand: true,
+// Új widget hozzáadásakor használt egyszerűsített felület
+export function buildCaptionRows(container, placeholderText) {
+    const captionRow = new Adw.EntryRow({
+        title: 'Caption',
+        text: placeholderText || '',
     });
-    grid.attach(captionLabel, 0, rowIdx, 1, 1);
-    grid.attach(captionEntry, 1, rowIdx, 1, 1);
-    rowIdx++;
 
-    const showCaptionLabel = new Gtk.Label({ label: 'Show Caption:', xalign: 0, hexpand: true });
-    const showCaptionSwitch = new Gtk.Switch({ active: true, halign: Gtk.Align.START, valign: Gtk.Align.CENTER });
-    grid.attach(showCaptionLabel, 0, rowIdx, 1, 1);
-    grid.attach(showCaptionSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const showCaptionRow = new Adw.SwitchRow({
+        title: 'Show Caption',
+        active: true,
+    });
 
-    return { captionEntry, showCaptionSwitch, rowIdx };
+    container.add(captionRow);
+    container.add(showCaptionRow);
+
+    return { 
+        captionEntry: captionRow, 
+        showCaptionSwitch: showCaptionRow 
+    };
 }
 
-export function buildCaptionControls(grid, rowIdx, widget, settings, defaultCaption) {
-    const captionLabel = new Gtk.Label({ label: 'Caption:', xalign: 0, hexpand: true });
-    const captionEntry = new Gtk.Entry({
+// Meglévő widget szerkesztésekor használt részletes felület (színválasztóval)
+export function buildCaptionControls(container, widget, settings, defaultCaption) {
+    const captionRow = new Adw.EntryRow({
+        title: 'Caption',
         text: widget.caption || defaultCaption || '',
-        hexpand: true,
-        placeholder_text: defaultCaption,
     });
-    grid.attach(captionLabel, 0, rowIdx, 1, 1);
-    grid.attach(captionEntry, 1, rowIdx, 1, 1);
-    rowIdx++;
 
-    const showCaptionLabel = new Gtk.Label({ label: 'Show Caption:', xalign: 0, hexpand: true });
-    const showCaptionSwitch = new Gtk.Switch({
-        halign: Gtk.Align.END,
-        valign: Gtk.Align.CENTER,
-    });
     const globalCaptionKey = widget.type === 'slideshow' ? 'slideshow-show-caption' : 'image-show-caption';
-    showCaptionSwitch.set_active(widget.showCaption !== undefined ? widget.showCaption : settings.get_boolean(globalCaptionKey));
-    grid.attach(showCaptionLabel, 0, rowIdx, 1, 1);
-    grid.attach(showCaptionSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const isCaptionVisible = widget.showCaption !== undefined 
+        ? widget.showCaption 
+        : settings.get_boolean(globalCaptionKey);
 
-    const fgColorLabel = new Gtk.Label({ label: 'Caption Text Color:', xalign: 0, hexpand: true });
-    const fgColorBtn = new Gtk.ColorButton({ halign: Gtk.Align.END, valign: Gtk.Align.CENTER });
+    const showCaptionRow = new Adw.SwitchRow({
+        title: 'Show Caption',
+        active: isCaptionVisible,
+    });
+
+    const fgColorRow = new Adw.ActionRow({
+        title: 'Caption Text Color',
+        subtitle: 'Color used for the caption overlay text',
+    });
+
+    const fgColorBtn = new Gtk.ColorButton({
+        valign: Gtk.Align.CENTER,
+        halign: Gtk.Align.CENTER,
+    });
+
     const fgRgba = new Gdk.RGBA();
     fgRgba.parse(widget.fgColor || settings.get_string('global-foreground-color') || '#ffffff');
     fgColorBtn.set_rgba(fgRgba);
-    grid.attach(fgColorLabel, 0, rowIdx, 1, 1);
-    grid.attach(fgColorBtn, 1, rowIdx, 1, 1);
-    rowIdx++;
 
-    return { captionEntry, showCaptionSwitch, fgColorBtn, rowIdx };
+    const fgColorBox = new Gtk.Box({
+        valign: Gtk.Align.CENTER,
+        halign: Gtk.Align.CENTER,
+    });
+    fgColorBox.append(fgColorBtn);
+    fgColorRow.add_suffix(fgColorBox);
+
+    container.add(captionRow);
+    container.add(showCaptionRow);
+    container.add(fgColorRow);
+
+    return { 
+        captionEntry: captionRow, 
+        showCaptionSwitch: showCaptionRow, 
+        fgColorBtn 
+    };
 }

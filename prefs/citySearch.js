@@ -1,4 +1,5 @@
 import Gtk from 'gi://Gtk';
+import Adw from 'gi://Adw';
 import Pango from 'gi://Pango';
 import GLib from 'gi://GLib';
 import Soup from 'gi://Soup?version=3.0';
@@ -8,7 +9,7 @@ import { clearBox } from './displayUtils.js';
 const REMOTE_CITIES_DATABASE_URL = 'https://raw.githubusercontent.com/lutangar/cities.json/master/cities.json';
 const MIN_QUERY_LENGTH = 2;
 const MAX_SEARCH_RESULTS_COUNT = 15;
-const MAX_SCROLLED_WINDOW_HEIGHT_PX = 160;
+const MAX_SCROLLED_WINDOW_HEIGHT_PX = 180;
 
 let cachedCitiesDatabase = null;
 let citiesRemoteFetchInFlight = null;
@@ -55,51 +56,61 @@ function fetchRemoteCitiesDatabase() {
     return citiesRemoteFetchInFlight;
 }
 
-
-function buildCitySearchScaffold(grid, labelTitle, placeholderText, rowIdx) {
-    const label = new Gtk.Label({ label: labelTitle, xalign: 0, valign: Gtk.Align.START, margin_top: 8 });
-    const vBox = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 6, hexpand: true, valign: Gtk.Align.START });
-
-    const searchEntry = new Gtk.SearchEntry({
-        placeholder_text: placeholderText,
-        hexpand: true
+function buildCitySearchScaffold(container, labelTitle, placeholderText) {
+    const group = new Adw.PreferencesGroup({
+        title: labelTitle,
     });
 
-    const statusLabel = new Gtk.Label({ xalign: 0, wrap: true,
-        wrap_mode: Pango.WrapMode.WORD, max_width_chars: 36 });
+    const searchEntryRow = new Adw.EntryRow({
+        title: placeholderText,
+        show_apply_button: false,
+    });
+    group.add(searchEntryRow);
+
+    const statusLabel = new Gtk.Label({
+        xalign: 0,
+        wrap: true,
+        wrap_mode: Pango.WrapMode.WORD,
+        css_classes: ['dim-label'],
+        margin_top: 4,
+        margin_start: 6,
+    });
 
     const resultsListBox = new Gtk.ListBox({
         css_classes: ['boxed-list'],
-        selection_mode: Gtk.SelectionMode.NONE
+        selection_mode: Gtk.SelectionMode.NONE,
+        margin_top: 6,
     });
 
     const scrolledWindow = new Gtk.ScrolledWindow({
         max_content_height: MAX_SCROLLED_WINDOW_HEIGHT_PX,
-        min_content_height: 120,
+        min_content_height: 100,
         propagate_natural_height: true,
         hscrollbar_policy: Gtk.PolicyType.NEVER,
-        vscrollbar_policy: Gtk.PolicyType.AUTOMATIC
+        vscrollbar_policy: Gtk.PolicyType.AUTOMATIC,
     });
     scrolledWindow.set_child(resultsListBox);
     scrolledWindow.set_visible(false);
 
-    vBox.append(searchEntry);
-    vBox.append(statusLabel);
-    vBox.append(scrolledWindow);
+    group.add(statusLabel);
+    group.add(scrolledWindow);
 
-    grid.attach(label, 0, rowIdx, 1, 1);
-    grid.attach(vBox, 1, rowIdx, 1, 1);
+    if (typeof container.add === 'function') {
+        container.add(group);
+    } else if (typeof container.append === 'function') {
+        container.append(group);
+    }
 
-    return { searchEntry, statusLabel, resultsListBox, scrolledWindow };
+    return { searchEntryRow, statusLabel, resultsListBox, scrolledWindow };
 }
 
-export function createLiveCitySearchRow(grid, labelTitle, defaultCity, rowIdx) {
+export function createLiveCitySearchRow(container, labelTitle, defaultCity) {
     const placeholderText = defaultCity && defaultCity.name
-        ? `e.g. ${defaultCity.name} (${defaultCity.timezone || ''})`
+        ? `Search (Current: ${defaultCity.name})`
         : 'Search city (e.g. London, Tokyo)...';
 
-    const { searchEntry, statusLabel, resultsListBox, scrolledWindow } =
-        buildCitySearchScaffold(grid, labelTitle, placeholderText, rowIdx);
+    const { searchEntryRow, statusLabel, resultsListBox, scrolledWindow } =
+        buildCitySearchScaffold(container, labelTitle, placeholderText);
 
     let selectedCityObj = { ...defaultCity };
     let lastSelectedCityName = null;
@@ -113,9 +124,9 @@ export function createLiveCitySearchRow(grid, labelTitle, defaultCity, rowIdx) {
         const escapedName = GLib.markup_escape_text(selectedCityObj.name, -1);
         const escapedDisplay = GLib.markup_escape_text(selectedCityObj.country || selectedCityObj.timezone || '', -1);
         if (isSelected) {
-            statusLabel.set_markup(`<span size='x-small' weight='bold'>Selected: ${escapedName} (${escapedDisplay})</span>`);
+            statusLabel.set_markup(`<span size='small' weight='bold'>Selected: ${escapedName} (${escapedDisplay})</span>`);
         } else {
-            statusLabel.set_markup(`<span size='x-small' alpha='60%'>Default: <b>${escapedName}</b> (${escapedDisplay})</span>`);
+            statusLabel.set_markup(`<span size='small'>Current: <b>${escapedName}</b> (${escapedDisplay})</span>`);
         }
     };
     updateStatusLabel(false);
@@ -130,7 +141,7 @@ export function createLiveCitySearchRow(grid, labelTitle, defaultCity, rowIdx) {
         lastSelectedCityName = cityItem.name;
         updateStatusLabel(true);
         isInternalUpdate = true;
-        searchEntry.set_text(cityItem.name);
+        searchEntryRow.set_text(cityItem.name);
         isInternalUpdate = false;
         clearBox(resultsListBox);
         scrolledWindow.set_visible(false);
@@ -146,7 +157,7 @@ export function createLiveCitySearchRow(grid, labelTitle, defaultCity, rowIdx) {
     const filterAndRenderCities = async () => {
         if (isInternalUpdate) return;
         const requestId = ++searchRequestSequence;
-        const rawQuery = searchEntry.get_text().trim();
+        const rawQuery = searchEntryRow.get_text().trim();
         const query = rawQuery.toLowerCase();
         clearBox(resultsListBox);
 
@@ -169,7 +180,7 @@ export function createLiveCitySearchRow(grid, labelTitle, defaultCity, rowIdx) {
         }
 
         if (!cachedCitiesDatabase) {
-            statusLabel.set_markup(`<span size='x-small' alpha='70%'>Loading city database...</span>`);
+            statusLabel.set_markup(`<span size='small'>Loading city database...</span>`);
             scrolledWindow.set_visible(false);
         }
 
@@ -186,59 +197,44 @@ export function createLiveCitySearchRow(grid, labelTitle, defaultCity, rowIdx) {
         }
 
         rawMatches.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-
         const matches = rawMatches.slice(0, MAX_SEARCH_RESULTS_COUNT);
 
         if (matches.length > 0) {
             for (const item of matches) {
-                const row = new Gtk.ListBoxRow({ selectable: false, activatable: true });
-                row._cityItem = item;
-
-                const rowBox = new Gtk.Box({
-                    orientation: Gtk.Orientation.HORIZONTAL,
-                    spacing: 12,
-                    margin_top: 6,
-                    margin_bottom: 6,
-                    margin_start: 10,
-                    margin_end: 10
+                const actionRow = new Adw.ActionRow({
+                    title: item.name,
+                    subtitle: item.country || '',
+                    activatable: true,
                 });
-
-                const nameLabel = new Gtk.Label({
-                    label: `${item.name} (${item.country || ''})`,
-                    xalign: 0,
-                    hexpand: true
-                });
-
-                rowBox.append(nameLabel);
-                row.set_child(rowBox);
+                actionRow._cityItem = item;
 
                 const gesture = new Gtk.GestureClick();
                 gesture.connect('pressed', () => selectCity(item));
-                row.add_controller(gesture);
+                actionRow.add_controller(gesture);
 
-                resultsListBox.append(row);
+                resultsListBox.append(actionRow);
             }
             scrolledWindow.set_visible(true);
         } else {
-            statusLabel.set_markup(`<span size='x-small' alpha='70%'>No matching city found for "<b>${GLib.markup_escape_text(searchEntry.get_text().trim(), -1)}</b>"</span>`);
+            statusLabel.set_markup(`<span size='small'>No matching city found for "<b>${GLib.markup_escape_text(searchEntryRow.get_text().trim(), -1)}</b>"</span>`);
             scrolledWindow.set_visible(false);
         }
     };
 
-    searchEntry.connect('search-changed', () => filterAndRenderCities());
-    searchEntry.connect('activate', () => filterAndRenderCities());
+    searchEntryRow.connect('notify::text', () => filterAndRenderCities());
+    searchEntryRow.connect('entry-activated', () => filterAndRenderCities());
 
     return { getSelectedCity: () => selectedCityObj };
 }
 
-export function buildOpenMeteoCitySearchRow(grid, labelTitle, defaultLocation, rowIdx) {
+export function buildOpenMeteoCitySearchRow(container, labelTitle, defaultLocation) {
     const performCitySearch = createOpenMeteoCitySearch();
     const placeholderText = defaultLocation && defaultLocation.name
-        ? `e.g. ${defaultLocation.name}`
+        ? `Search (Current: ${defaultLocation.name})`
         : 'Search city (e.g. London, Tokyo)...';
 
-    const { searchEntry, statusLabel, resultsListBox, scrolledWindow } =
-        buildCitySearchScaffold(grid, labelTitle, placeholderText, rowIdx);
+    const { searchEntryRow, statusLabel, resultsListBox, scrolledWindow } =
+        buildCitySearchScaffold(container, labelTitle, placeholderText);
 
     let selectedLocation = defaultLocation ? { ...defaultLocation } : null;
     let suppressNextSearch = false;
@@ -253,7 +249,7 @@ export function buildOpenMeteoCitySearchRow(grid, labelTitle, defaultLocation, r
             ? ` (${Number(selectedLocation.latitude).toFixed(2)}, ${Number(selectedLocation.longitude).toFixed(2)})`
             : '';
         statusLabel.set_markup(
-            `<span size='x-small' weight='bold'>Selected: ${GLib.markup_escape_text(selectedLocation.name, -1)}${GLib.markup_escape_text(coordText, -1)}</span>`
+            `<span size='small' weight='bold'>Selected: ${GLib.markup_escape_text(selectedLocation.name, -1)}${GLib.markup_escape_text(coordText, -1)}</span>`
         );
     };
     updateStatusLabel();
@@ -262,15 +258,15 @@ export function buildOpenMeteoCitySearchRow(grid, labelTitle, defaultLocation, r
         selectedLocation = { name: loc.name, latitude: loc.latitude, longitude: loc.longitude };
         updateStatusLabel();
         suppressNextSearch = true;
-        searchEntry.set_text(loc.name);
+        searchEntryRow.set_text(loc.name);
         suppressNextSearch = false;
         clearBox(resultsListBox);
         scrolledWindow.set_visible(false);
     };
 
-    searchEntry.connect('search-changed', () => {
+    searchEntryRow.connect('notify::text', () => {
         if (suppressNextSearch) return;
-        const query = searchEntry.get_text().trim();
+        const query = searchEntryRow.get_text().trim();
         if (!query || query.length < 2) {
             clearBox(resultsListBox);
             scrolledWindow.set_visible(false);
@@ -291,12 +287,11 @@ function resolveTimezoneForCity(cityItem) {
     const country = (cityItem.country || '').toUpperCase();
     const lng = parseFloat(cityItem.lng || 0);
 
-    // 1. Több időzónás nagy országok koordináta (hosszúsági fok) alapján
     if (country === 'US' || country === 'CA') {
-        if (lng < -114) return country === 'CA' ? 'America/Vancouver' : 'America/Los_Angeles'; // Csendes-óceáni
-        if (lng < -102) return country === 'CA' ? 'America/Edmonton' : 'America/Denver';       // Hegyvidéki
-        if (lng < -85)  return country === 'CA' ? 'America/Winnipeg' : 'America/Chicago';      // Központi
-        return country === 'CA' ? 'America/Toronto' : 'America/New_York';                      // Keleti
+        if (lng < -114) return country === 'CA' ? 'America/Vancouver' : 'America/Los_Angeles';
+        if (lng < -102) return country === 'CA' ? 'America/Edmonton' : 'America/Denver';
+        if (lng < -85)  return country === 'CA' ? 'America/Winnipeg' : 'America/Chicago';
+        return country === 'CA' ? 'America/Toronto' : 'America/New_York';
     }
 
     if (country === 'RU') {
@@ -321,7 +316,6 @@ function resolveTimezoneForCity(cityItem) {
         return 'America/Sao_Paulo';
     }
 
-    // 2. Főbb egy-időzónás országok IANA zónái
     const COUNTRY_TIMEZONES = {
         'HU': 'Europe/Budapest',
         'AE': 'Asia/Dubai',
@@ -365,7 +359,6 @@ function resolveTimezoneForCity(cityItem) {
         return COUNTRY_TIMEZONES[country];
     }
 
-    // 3. Fallback: Hosszúsági fok szerinti UTC eltolás közelítés
     const roughOffsetHours = Math.round(lng / 15);
     if (roughOffsetHours === 0) return 'UTC';
     return roughOffsetHours > 0 ? `Etc/GMT-${roughOffsetHours}` : `Etc/GMT+${Math.abs(roughOffsetHours)}`;

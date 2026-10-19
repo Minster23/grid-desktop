@@ -136,32 +136,26 @@ function createWidgetRow(window, settings, widget) {
             icon = new Gtk.Image({
                 gicon: gicon,
                 pixel_size: 24,
+                margin_end: 8,
+                valign: Gtk.Align.CENTER,
             });
         }
     }
 
-    // Ha nincs customIcon (vagy a fájl valamiért nem létezik), marad az eddigi fallback rendszerikon
     if (!icon) {
         icon = new Gtk.Image({
             icon_name: rowIconName,
             pixel_size: 24,
+            margin_end: 8,
+            valign: Gtk.Align.CENTER,
         });
     }
-
-    icon.margin_end = 8;
-    icon.valign = Gtk.Align.CENTER;
     
     expanderRow.add_prefix(icon);
 
-    // Külön ikon widget létrehozása a gombhoz explicit igazítással
-    const trashIcon = new Gtk.Image({
-        icon_name: 'user-trash-symbolic',
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.CENTER,
-    });
-
+    // Közvetlen gomb felesleges konténer nélkül
     const deleteButton = new Gtk.Button({
-        child: trashIcon, // icon_name helyett közvetlen child!
+        icon_name: 'user-trash-symbolic',
         css_classes: ['destructive-action', 'flat'],
         valign: Gtk.Align.CENTER,
         halign: Gtk.Align.CENTER,
@@ -169,28 +163,36 @@ function createWidgetRow(window, settings, widget) {
     });
 
     deleteButton.connect('clicked', () => {
-        const widgets = getWidgets(settings);
-        const remainingWidgets = widgets.filter(existingWidget => existingWidget.id !== widget.id);
+        const dialog = new Adw.AlertDialog({
+            heading: `Remove "${rowTitle}"?`,
+            body: 'This will remove the widget from your desktop grid.',
+        });
 
-        const CACHE_TYPE_MAP = { clipboard: 'clipboard', todo: 'todos', github: 'github' };
-        const cacheKey = CACHE_TYPE_MAP[widget.type];
-        if (cacheKey) {
-            deleteCacheFile(cacheKey, widget.id);
-        }
+        dialog.add_response('cancel', 'Cancel');
+        dialog.add_response('remove', 'Remove');
+        dialog.set_response_appearance('remove', Adw.ResponseAppearance.DESTRUCTIVE);
+        dialog.set_default_response('cancel');
+        dialog.set_close_response('cancel');
 
-        saveWidgets(settings, remainingWidgets);
+        dialog.connect('response', (_dlg, responseId) => {
+            if (responseId === 'remove') {
+                const widgets = getWidgets(settings);
+                const remainingWidgets = widgets.filter(existingWidget => existingWidget.id !== widget.id);
+
+                const CACHE_TYPE_MAP = { clipboard: 'clipboard', todo: 'todos', github: 'github' };
+                const cacheKey = CACHE_TYPE_MAP[widget.type];
+                if (cacheKey) {
+                    deleteCacheFile(cacheKey, widget.id);
+                }
+
+                saveWidgets(settings, remainingWidgets);
+            }
+        });
+
+        dialog.present(window);
     });
 
-    const suffixBox = new Gtk.Box({
-        orientation: Gtk.Orientation.HORIZONTAL,
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.CENTER,
-        baseline_position: Gtk.BaselinePosition.CENTER,
-    });
-    suffixBox.append(deleteButton);
-
-    expanderRow.add_suffix(suffixBox);
-    
+    expanderRow.add_suffix(deleteButton);
 
     expanderRow.connect('notify::expanded', () => {
         if (!expanderRow.get_expanded() || expanderRow.editPanelLoaded) {

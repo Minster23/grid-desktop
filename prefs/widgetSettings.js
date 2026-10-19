@@ -1,4 +1,5 @@
 import Gtk from 'gi://Gtk';
+import Adw from 'gi://Adw';
 import Gdk from 'gi://Gdk';
 import Pango from 'gi://Pango';
 import Gio from 'gi://Gio';
@@ -26,45 +27,64 @@ const RSS_MIN_REFRESH_MINUTES = 5;
 const RSS_MAX_REFRESH_MINUTES = 720;
 const RSS_REFRESH_STEP_MINUTES = 5;
 
-export function buildStandardSettings(grid, rowIdx, widget, settings, saveHandlers) {
+function createColorButton(initialRgbaStr, onColorChanged) {
+    const rgba = new Gdk.RGBA();
+    rgba.parse(initialRgbaStr);
+
+    let btn;
+    if (Gtk.ColorDialogButton && Gtk.ColorDialog) {
+        const dialog = new Gtk.ColorDialog({ with_alpha: true });
+        btn = new Gtk.ColorDialogButton({
+            dialog,
+            rgba,
+            valign: Gtk.Align.CENTER,
+            halign: Gtk.Align.CENTER,
+        });
+        btn.connect('notify::rgba', () => {
+            const val = btn.get_rgba();
+            if (val && onColorChanged) onColorChanged(val.to_string());
+        });
+    } else {
+        btn = new Gtk.ColorButton({
+            valign: Gtk.Align.CENTER,
+            halign: Gtk.Align.CENTER,
+            rgba,
+            use_alpha: true,
+        });
+        btn.connect('color-set', () => {
+            if (onColorChanged) onColorChanged(btn.get_rgba().to_string());
+        });
+    }
+    return btn;
+}
+
+export function buildStandardSettings(container, widget, settings, saveHandlers) {
     const isImageOrSlideshow = widget.type === 'slideshow' || widget.type === 'image' || widget.imagePath;
 
-    let bgColorBtn, bgOpacityScale, fgColorBtn, fontBtn, colorSwitch;
-    let initialFontDescription = '';
+    let bgColorBtn, bgOpacityScale, fgColorBtn, fontBtn, colorSwitchRow;
+    let selectedBgColor = widget.bgColor || settings.get_string('global-background-color') || DEFAULT_BG_COLOR;
+    let selectedFgColor = widget.fgColor || settings.get_string('global-foreground-color') || DEFAULT_FG_COLOR;
 
     if (!isImageOrSlideshow) {
         const isFollowSystem = settings.get_boolean('follow-system-theme');
 
-        // Kapcsoló és felirat
-        const switchLabelText = isFollowSystem 
-            ? 'Custom Colors & Font: (Disabled by System Theme)' 
-            : 'Custom Colors & Font:';
-        const colorSwitchLabel = new Gtk.Label({ label: switchLabelText, xalign: 0, hexpand: true });
-        colorSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-        colorSwitch.set_active(widget.overrideColors === true);
-        
-        // Ha a System Theme be van kapcsolva, a főkapcsoló sem engedélyezett
-        colorSwitch.set_sensitive(!isFollowSystem);
+        colorSwitchRow = new Adw.SwitchRow({
+            title: isFollowSystem ? 'Custom Colors & Font (Disabled by System Theme)' : 'Custom Colors & Font',
+            active: widget.overrideColors === true && !isFollowSystem,
+            sensitive: !isFollowSystem,
+        });
+        container.add(colorSwitchRow);
 
-        grid.attach(colorSwitchLabel, 0, rowIdx, 1, 1);
-        grid.attach(colorSwitch, 1, rowIdx, 1, 1);
-        rowIdx++;
+        // Háttérszín
+        const bgColorRow = new Adw.ActionRow({ title: 'Background Color' });
+        bgColorBtn = createColorButton(selectedBgColor, (c) => { selectedBgColor = c; });
+        bgColorRow.add_suffix(bgColorBtn);
+        bgColorRow.set_activatable_widget(bgColorBtn);
+        container.add(bgColorRow);
 
-        // Háttérszín gomb
-        const bgColorLabel = new Gtk.Label({ label: 'Background Color:', xalign: 0, hexpand: true });
-        bgColorBtn = new Gtk.ColorButton({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-        const bgRgba = new Gdk.RGBA();
-        bgRgba.parse(widget.bgColor || settings.get_string('global-background-color') || DEFAULT_BG_COLOR);
-        bgColorBtn.set_rgba(bgRgba);
-        grid.attach(bgColorLabel, 0, rowIdx, 1, 1);
-        grid.attach(bgColorBtn, 1, rowIdx, 1, 1);
-        rowIdx++;
-
-        // ÚJ: Háttér átlátszóság csúszka
-        const bgOpacityLabel = new Gtk.Label({ label: 'Background Opacity:', xalign: 0, hexpand: true });
+        // Háttér átlátszóság
         const defaultGlobalOpacity = settings.get_int('global-background-opacity');
         const initialOpacity = widget.bgOpacity !== undefined ? widget.bgOpacity : (defaultGlobalOpacity || 100);
-        
         const opacityAdjustment = new Gtk.Adjustment({
             lower: 0,
             upper: 100,
@@ -81,43 +101,25 @@ export function buildStandardSettings(grid, rowIdx, widget, settings, saveHandle
             hexpand: true,
             width_request: 140,
             valign: Gtk.Align.CENTER,
-            halign: Gtk.Align.END,
         });
         bgOpacityScale.set_digits(0);
 
-        grid.attach(bgOpacityLabel, 0, rowIdx, 1, 1);
-        grid.attach(bgOpacityScale, 1, rowIdx, 1, 1);
-        rowIdx++;
+        const bgOpacityRow = new Adw.ActionRow({ title: 'Background Opacity' });
+        bgOpacityRow.add_suffix(bgOpacityScale);
+        container.add(bgOpacityRow);
 
         // Szöveg / ikon szín
-        const fgColorLabel = new Gtk.Label({ label: 'Text/Icon Color:', xalign: 0, hexpand: true });
-        fgColorBtn = new Gtk.ColorButton({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-        const fgRgba = new Gdk.RGBA();
-        fgRgba.parse(widget.fgColor || settings.get_string('global-foreground-color') || DEFAULT_FG_COLOR);
-        fgColorBtn.set_rgba(fgRgba);
-        grid.attach(fgColorLabel, 0, rowIdx, 1, 1);
-        grid.attach(fgColorBtn, 1, rowIdx, 1, 1);
-        rowIdx++;
+        const fgColorRow = new Adw.ActionRow({ title: 'Text/Icon Color' });
+        fgColorBtn = createColorButton(selectedFgColor, (c) => { selectedFgColor = c; });
+        fgColorRow.add_suffix(fgColorBtn);
+        fgColorRow.set_activatable_widget(fgColorBtn);
+        container.add(fgColorRow);
 
         // Betűtípus
         const isNotesWidget = widget.type === 'notes';
-        const fontLabel = new Gtk.Label({ 
-            label: isNotesWidget ? 'Font & Size:' : 'Font Family:', 
-            xalign: 0, 
-            hexpand: true 
+        const fontRow = new Adw.ActionRow({
+            title: isNotesWidget ? 'Font & Size' : 'Font Family',
         });
-        fontBtn = new Gtk.FontButton({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-        
-        fontBtn.set_use_size(isNotesWidget);
-        if (Gtk.FontChooserLevel) {
-            if (isNotesWidget) {
-                // Notes esetén: Család + Méret
-                fontBtn.set_level(Gtk.FontChooserLevel.FAMILY | Gtk.FontChooserLevel.SIZE);
-            } else {
-                // Minden egyéb widgetnél: KIZÁRÓLAG Család (a méretválasztó eltűnik az ablakból!)
-                fontBtn.set_level(Gtk.FontChooserLevel.FAMILY);
-            }
-        }
 
         const currentFamily = widget.fontFamily || settings.get_string('global-font-family') || DEFAULT_FONT_FAMILY || 'Cantarell';
         const fontDesc = createNormalizedFontDescription(currentFamily);
@@ -125,35 +127,54 @@ export function buildStandardSettings(grid, rowIdx, widget, settings, saveHandle
             const currentSize = widget.fontSize || 14;
             fontDesc.set_size(Math.round(currentSize * Pango.SCALE));
         }
-        initialFontDescription = fontDesc.to_string();
-        fontBtn.set_font(initialFontDescription);
 
-        grid.attach(fontLabel, 0, rowIdx, 1, 1);
-        grid.attach(fontBtn, 1, rowIdx, 1, 1);
-        rowIdx++;
+        if (Gtk.FontDialogButton && Gtk.FontDialog) {
+            const fontDialog = new Gtk.FontDialog();
+            fontBtn = new Gtk.FontDialogButton({
+                dialog: fontDialog,
+                font_desc: fontDesc,
+                valign: Gtk.Align.CENTER,
+                halign: Gtk.Align.CENTER,
+                use_size: isNotesWidget,
+                level: isNotesWidget
+                    ? (Gtk.FontLevel ? (Gtk.FontLevel.FAMILY | Gtk.FontLevel.SIZE) : 0)
+                    : (Gtk.FontLevel ? Gtk.FontLevel.FAMILY : 0),
+            });
+        } else {
+            fontBtn = new Gtk.FontButton({
+                valign: Gtk.Align.CENTER,
+                halign: Gtk.Align.CENTER,
+                use_size: isNotesWidget,
+            });
+            if (Gtk.FontChooserLevel) {
+                fontBtn.set_level(isNotesWidget
+                    ? (Gtk.FontChooserLevel.FAMILY | Gtk.FontChooserLevel.SIZE)
+                    : Gtk.FontChooserLevel.FAMILY);
+            }
+            fontBtn.set_font(fontDesc.to_string());
+        }
 
-        // Aktív állapotok beállítása (figyelembe véve a system theme-et is)
-        const canCustomize = !isFollowSystem && colorSwitch.get_active();
-        bgColorBtn.set_sensitive(canCustomize);
-        bgOpacityScale.set_sensitive(canCustomize);
-        fgColorBtn.set_sensitive(canCustomize);
-        fontBtn.set_sensitive(canCustomize);
+        fontRow.add_suffix(fontBtn);
+        fontRow.set_activatable_widget(fontBtn);
+        container.add(fontRow);
 
-        colorSwitch.connect('notify::active', () => {
-            const active = colorSwitch.get_active() && !settings.get_boolean('follow-system-theme');
-            bgColorBtn.set_sensitive(active);
-            bgOpacityScale.set_sensitive(active);
-            fgColorBtn.set_sensitive(active);
-            fontBtn.set_sensitive(active);
-        });
+        // Érzékenység szinkronizálás
+        const syncColorSensitivity = () => {
+            const canCustomize = !settings.get_boolean('follow-system-theme') && colorSwitchRow.get_active();
+            bgColorRow.set_sensitive(canCustomize);
+            bgOpacityRow.set_sensitive(canCustomize);
+            fgColorRow.set_sensitive(canCustomize);
+            fontRow.set_sensitive(canCustomize);
+        };
+        syncColorSensitivity();
+        colorSwitchRow.connect('notify::active', syncColorSensitivity);
     }
 
     const monitorCount = getConnectedMonitorsCount();
-    let monitorCombo = null;
+    let monitorComboRow = null;
     let monitorKeys = [];
 
     if (monitorCount > 1) {
-        const monitorLabel = new Gtk.Label({ label: 'Target Monitor:', xalign: 0, hexpand: true });
         const monitorStrings = ['Default (Follow Global)', 'Primary Monitor'];
         monitorKeys = ['global', 'primary'];
         for (const entry of buildMonitorEntries(monitorCount)) {
@@ -161,22 +182,20 @@ export function buildStandardSettings(grid, rowIdx, widget, settings, saveHandle
             monitorKeys.push(entry.key);
         }
 
-        monitorCombo = new Gtk.DropDown({
-            model: Gtk.StringList.new(monitorStrings),
-            valign: Gtk.Align.CENTER,
-            halign: Gtk.Align.END
+        monitorComboRow = new Adw.ComboRow({
+            title: 'Target Monitor',
+            model: new Gtk.StringList({ strings: monitorStrings }),
         });
+
         const currentWidgetMonitor = widget.monitor || 'global';
         const monitorIdx = monitorKeys.indexOf(currentWidgetMonitor);
-        monitorCombo.set_selected(monitorIdx >= 0 ? monitorIdx : 0);
-        grid.attach(monitorLabel, 0, rowIdx, 1, 1);
-        grid.attach(monitorCombo, 1, rowIdx, 1, 1);
-        rowIdx++;
+        monitorComboRow.set_selected(monitorIdx >= 0 ? monitorIdx : 0);
+        container.add(monitorComboRow);
     }
 
     saveHandlers.push((target) => {
-        if (monitorCombo && monitorKeys.length > 0) {
-            const selectedMonitorKey = monitorKeys[monitorCombo.get_selected()];
+        if (monitorComboRow && monitorKeys.length > 0) {
+            const selectedMonitorKey = monitorKeys[monitorComboRow.get_selected()];
             if (selectedMonitorKey !== 'global') {
                 target.monitor = selectedMonitorKey;
             } else {
@@ -184,21 +203,18 @@ export function buildStandardSettings(grid, rowIdx, widget, settings, saveHandle
             }
         }
 
-        if (!isImageOrSlideshow && colorSwitch) {
-            target.overrideColors = colorSwitch.get_active();
-            target.bgColor = bgColorBtn.get_rgba().to_string();
+        if (!isImageOrSlideshow && colorSwitchRow) {
+            target.overrideColors = colorSwitchRow.get_active();
+            target.bgColor = selectedBgColor;
             target.bgOpacity = Math.round(bgOpacityScale.get_value());
-            target.fgColor = fgColorBtn.get_rgba().to_string();
+            target.fgColor = selectedFgColor;
 
-            const chosenFontStr = fontBtn.get_font();
-            if (chosenFontStr) {
-                const desc = Pango.FontDescription.from_string(chosenFontStr);
+            const desc = fontBtn.get_font_desc ? fontBtn.get_font_desc() : Pango.FontDescription.from_string(fontBtn.get_font());
+            if (desc) {
                 const family = desc.get_family();
                 if (family) {
                     target.fontFamily = family;
                 }
-                
-                // Méretet KIZÁRÓLAG a Notes widget menthet:
                 if (widget.type === 'notes') {
                     const size = desc.get_size();
                     if (size > 0) {
@@ -210,49 +226,44 @@ export function buildStandardSettings(grid, rowIdx, widget, settings, saveHandle
             }
         }
     });
-
-    return rowIdx;
 }
 
-export function buildRssSettings(grid, rowIdx, widget, saveHandlers) {
-    const urlLabel = new Gtk.Label({ label: 'Feed URL:', xalign: 0, hexpand: true });
-    const urlEntry = new Gtk.Entry({
+export function buildRssSettings(container, widget, saveHandlers) {
+    const urlRow = new Adw.EntryRow({
+        title: 'Feed URL',
         text: widget.feedUrl || '',
-        placeholder_text: 'https://example.com/feed.xml',
-        hexpand: true,
-        input_purpose: Gtk.InputPurpose.URL,
     });
-    grid.attach(urlLabel, 0, rowIdx, 1, 1);
-    grid.attach(urlEntry, 1, rowIdx, 1, 1);
-    rowIdx++;
 
-    const refreshLabel = new Gtk.Label({ label: 'Refresh Interval (Minutes):', xalign: 0, hexpand: true });
-    const refreshSpin = Gtk.SpinButton.new_with_range(RSS_MIN_REFRESH_MINUTES, RSS_MAX_REFRESH_MINUTES, RSS_REFRESH_STEP_MINUTES);
-    refreshSpin.set_valign(Gtk.Align.CENTER);
-    refreshSpin.set_halign(Gtk.Align.END);
-    refreshSpin.set_value(widget.refreshMinutes || DEFAULT_RSS_REFRESH_MINUTES);
-    grid.attach(refreshLabel, 0, rowIdx, 1, 1);
-    grid.attach(refreshSpin, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const refreshRow = new Adw.SpinRow({
+        title: 'Refresh Interval (Minutes)',
+        adjustment: new Gtk.Adjustment({
+            lower: RSS_MIN_REFRESH_MINUTES,
+            upper: RSS_MAX_REFRESH_MINUTES,
+            step_increment: RSS_REFRESH_STEP_MINUTES,
+            value: widget.refreshMinutes || DEFAULT_RSS_REFRESH_MINUTES,
+        }),
+    });
+
+    container.add(urlRow);
+    container.add(refreshRow);
 
     saveHandlers.push((target) => {
-        const trimmedUrl = urlEntry.get_text().trim();
+        const trimmedUrl = urlRow.get_text().trim();
         if (trimmedUrl) {
             target.feedUrl = trimmedUrl;
         }
-        target.refreshMinutes = Math.round(refreshSpin.get_value());
+        target.refreshMinutes = Math.round(refreshRow.get_value());
     });
-
-    return rowIdx;
 }
 
-export function buildSunScheduleSettings(grid, rowIdx, widget, saveHandlers) {
+export function buildSunScheduleSettings(container, widget, saveHandlers) {
     const currentLocation = { name: widget.city || '' };
     if (widget.latitude !== undefined && widget.longitude !== undefined) {
         currentLocation.latitude = widget.latitude;
         currentLocation.longitude = widget.longitude;
     }
-    const locationPicker = buildOpenMeteoCitySearchRow(grid, 'City Location:', currentLocation, rowIdx++);
+
+    const locationPicker = buildOpenMeteoCitySearchRow(container, 'City Location', currentLocation);
 
     saveHandlers.push((target) => {
         const selectedLocation = locationPicker.getSelectedLocation();
@@ -262,44 +273,39 @@ export function buildSunScheduleSettings(grid, rowIdx, widget, saveHandlers) {
             target.longitude = selectedLocation.longitude;
         }
     });
-
-    return rowIdx;
 }
 
-export function buildWeatherSettings(grid, rowIdx, widget, settings, saveHandlers) {
+export function buildWeatherSettings(container, widget, settings, saveHandlers) {
     const currentLocation = { name: widget.location || 'London' };
     if (widget.lat !== undefined && widget.lon !== undefined) {
         currentLocation.latitude = widget.lat;
         currentLocation.longitude = widget.lon;
     }
-    const cityPicker = buildOpenMeteoCitySearchRow(grid, 'City Location:', currentLocation, rowIdx++);
+    const cityPicker = buildOpenMeteoCitySearchRow(container, 'City Location', currentLocation);
 
-    const dynamicColorLabel = new Gtk.Label({ label: 'Dynamic Weather Color:', xalign: 0, hexpand: true });
-    const dynamicColorSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
     const isDynamicColorActive = widget.dynamicColor !== undefined
         ? widget.dynamicColor
         : settings.get_boolean('weather-dynamic-color');
-    dynamicColorSwitch.set_active(isDynamicColorActive);
-    grid.attach(dynamicColorLabel, 0, rowIdx, 1, 1);
-    grid.attach(dynamicColorSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const dynamicColorRow = new Adw.SwitchRow({
+        title: 'Dynamic Weather Color',
+        active: isDynamicColorActive,
+    });
+    container.add(dynamicColorRow);
 
-    const dynamicOverlayLabel = new Gtk.Label({ label: 'Dynamic Weather Overlay:', xalign: 0, hexpand: true });
-    const dynamicOverlaySwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
     const isDynamicOverlayActive = widget.dynamicImage !== undefined
         ? widget.dynamicImage
         : settings.get_boolean('weather-dynamic-image');
-    dynamicOverlaySwitch.set_active(isDynamicOverlayActive);
-    grid.attach(dynamicOverlayLabel, 0, rowIdx, 1, 1);
-    grid.attach(dynamicOverlaySwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const dynamicOverlayRow = new Adw.SwitchRow({
+        title: 'Dynamic Weather Overlay',
+        active: isDynamicOverlayActive,
+    });
+    container.add(dynamicOverlayRow);
 
-    const fahrenheitLabel = new Gtk.Label({ label: 'Use Fahrenheit:', xalign: 0, hexpand: true });
-    const fahrenheitSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-    fahrenheitSwitch.set_active(widget.useFahrenheit !== undefined ? widget.useFahrenheit : settings.get_boolean('weather-use-fahrenheit'));
-    grid.attach(fahrenheitLabel, 0, rowIdx, 1, 1);
-    grid.attach(fahrenheitSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const fahrenheitRow = new Adw.SwitchRow({
+        title: 'Use Fahrenheit',
+        active: widget.useFahrenheit !== undefined ? widget.useFahrenheit : settings.get_boolean('weather-use-fahrenheit'),
+    });
+    container.add(fahrenheitRow);
 
     const globalDynamicColorDefault = settings.get_boolean('weather-dynamic-color');
     const globalDynamicImageDefault = settings.get_boolean('weather-dynamic-image');
@@ -313,22 +319,20 @@ export function buildWeatherSettings(grid, rowIdx, widget, settings, saveHandler
                 target.lon = selectedCity.longitude;
             }
         }
-        const userColor = dynamicColorSwitch.get_active();
+        const userColor = dynamicColorRow.get_active();
         if (userColor !== globalDynamicColorDefault) {
             target.dynamicColor = userColor;
         } else {
             delete target.dynamicColor;
         }
-        const userImage = dynamicOverlaySwitch.get_active();
+        const userImage = dynamicOverlayRow.get_active();
         if (userImage !== globalDynamicImageDefault) {
             target.dynamicImage = userImage;
         } else {
             delete target.dynamicImage;
         }
-        target.useFahrenheit = fahrenheitSwitch.get_active();
+        target.useFahrenheit = fahrenheitRow.get_active();
     });
-
-    return rowIdx;
 }
 
 function getAvailableSkins() {
@@ -371,492 +375,370 @@ function getAvailableSkins() {
     return skins;
 }
 
-export function buildTimeSettings(grid, rowIdx, widget, settings, saveHandlers) {
-    let skinCombo = null;
+export function buildTimeSettings(container, widget, settings, saveHandlers) {
+    let skinComboRow = null;
     let skinKeys = [];
-    let secondHandSwitch = null;
-    let bgSwitch = null;
+    let secondHandRow = null;
+    let bgSwitchRow = null;
 
     if (widget.layout === 'analog') {
         skinKeys = getAvailableSkins();
         const skinLabels = skinKeys.map(k => k.charAt(0).toUpperCase() + k.slice(1));
 
-        const skinRowLabel = new Gtk.Label({ label: 'Clock Skin:', xalign: 0, hexpand: true });
-        skinCombo = new Gtk.DropDown({
-            model: Gtk.StringList.new(skinLabels),
-            valign: Gtk.Align.CENTER,
-            halign: Gtk.Align.END,
+        skinComboRow = new Adw.ComboRow({
+            title: 'Clock Skin',
+            model: new Gtk.StringList({ strings: skinLabels }),
         });
 
         const currentSkin = widget.skin || 'basic';
         const currentIdx = skinKeys.indexOf(currentSkin);
-        skinCombo.set_selected(currentIdx >= 0 ? currentIdx : 0);
+        skinComboRow.set_selected(currentIdx >= 0 ? currentIdx : 0);
+        container.add(skinComboRow);
 
-        grid.attach(skinRowLabel, 0, rowIdx, 1, 1);
-        grid.attach(skinCombo, 1, rowIdx, 1, 1);
-        rowIdx++;
+        secondHandRow = new Adw.SwitchRow({
+            title: 'Show Second Hand',
+            active: widget.showSecondHand !== false,
+        });
+        container.add(secondHandRow);
 
-        // Másodpercmutató kapcsoló
-        const secondHandLabel = new Gtk.Label({ label: 'Show Second Hand:', xalign: 0, hexpand: true });
-        secondHandSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-        secondHandSwitch.set_active(widget.showSecondHand !== false);
-
-        grid.attach(secondHandLabel, 0, rowIdx, 1, 1);
-        grid.attach(secondHandSwitch, 1, rowIdx, 1, 1);
-        rowIdx++;
-
-        // Háttér doboz ki/be kapcsoló
-        const bgLabel = new Gtk.Label({ label: 'Show Background Box:', xalign: 0, hexpand: true });
-        bgSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-        bgSwitch.set_active(widget.showBackground !== false); // Alapértelmezetten bekapcsolva
-
-        grid.attach(bgLabel, 0, rowIdx, 1, 1);
-        grid.attach(bgSwitch, 1, rowIdx, 1, 1);
-        rowIdx++;
+        bgSwitchRow = new Adw.SwitchRow({
+            title: 'Show Background Box',
+            active: widget.showBackground !== false,
+        });
+        container.add(bgSwitchRow);
     }
 
-    let formatSwitch = null;
+    let formatRow = null;
     if (widget.layout !== 'analog') {
-        const formatLabel = new Gtk.Label({ label: 'Use 24-Hour Format:', xalign: 0, hexpand: true });
-        formatSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-        formatSwitch.set_active(widget.use24h !== undefined ? widget.use24h : settings.get_boolean('time-format-24h'));
-
-        grid.attach(formatLabel, 0, rowIdx, 1, 1);
-        grid.attach(formatSwitch, 1, rowIdx, 1, 1);
-        rowIdx++;
+        formatRow = new Adw.SwitchRow({
+            title: 'Use 24-Hour Format',
+            active: widget.use24h !== undefined ? widget.use24h : settings.get_boolean('time-format-24h'),
+        });
+        container.add(formatRow);
     }
 
     let primaryPicker, sec1Picker, sec2Picker;
     if (widget.layout === 'world' || widget.cities) {
         const defaultCities = widget.cities || [...DEFAULT_WORLD_CLOCK_CITIES];
-        primaryPicker = createLiveCitySearchRow(grid, 'Primary City (Top):', defaultCities[0] ?? DEFAULT_WORLD_CLOCK_CITIES[0], rowIdx++);
-        sec1Picker = createLiveCitySearchRow(grid, 'Secondary City (Bottom Left):', defaultCities[1] ?? DEFAULT_WORLD_CLOCK_CITIES[1], rowIdx++);
-        sec2Picker = createLiveCitySearchRow(grid, 'Secondary City (Bottom Right):', defaultCities[2] ?? DEFAULT_WORLD_CLOCK_CITIES[2], rowIdx++);
+        primaryPicker = createLiveCitySearchRow(container, 'Primary City (Top)', defaultCities[0] ?? DEFAULT_WORLD_CLOCK_CITIES[0]);
+        sec1Picker = createLiveCitySearchRow(container, 'Secondary City (Bottom Left)', defaultCities[1] ?? DEFAULT_WORLD_CLOCK_CITIES[1]);
+        sec2Picker = createLiveCitySearchRow(container, 'Secondary City (Bottom Right)', defaultCities[2] ?? DEFAULT_WORLD_CLOCK_CITIES[2]);
     }
 
     saveHandlers.push((target) => {
-        if (skinCombo && skinKeys.length > 0) {
-            target.skin = skinKeys[skinCombo.get_selected()] || 'basic';
+        if (skinComboRow && skinKeys.length > 0) {
+            target.skin = skinKeys[skinComboRow.get_selected()] || 'basic';
         }
-        if (secondHandSwitch) {
-            target.showSecondHand = secondHandSwitch.get_active();
+        if (secondHandRow) {
+            target.showSecondHand = secondHandRow.get_active();
         }
-        if (bgSwitch) {
-            target.showBackground = bgSwitch.get_active();
+        if (bgSwitchRow) {
+            target.showBackground = bgSwitchRow.get_active();
         }
-        if (formatSwitch) {
-            target.use24h = formatSwitch.get_active();
+        if (formatRow) {
+            target.use24h = formatRow.get_active();
         }
         if (primaryPicker && sec1Picker && sec2Picker) {
             target.cities = [
                 primaryPicker.getSelectedCity(),
                 sec1Picker.getSelectedCity(),
-                sec2Picker.getSelectedCity()
+                sec2Picker.getSelectedCity(),
             ];
         }
     });
-
-    return rowIdx;
 }
 
-export function buildMusicSettings(grid, rowIdx, widget, saveHandlers) {
+export function buildMusicSettings(container, widget, saveHandlers) {
     const isWide = isWideMusicLayout(widget);
 
-    // ── 1. Alapvető lejátszó opciók (Mindkét méretre érvényes) ──
-    const showControlsLabel = new Gtk.Label({ label: 'Show Player Controls:', xalign: 0, hexpand: true });
-    const showControlsSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-    showControlsSwitch.set_active(widget.showControls !== false);
-    grid.attach(showControlsLabel, 0, rowIdx, 1, 1);
-    grid.attach(showControlsSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
-
-    const ignoreBrowsersLabel = new Gtk.Label({ label: 'Ignore Browser Players:', xalign: 0, hexpand: true });
-    const ignoreBrowsersSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-    ignoreBrowsersSwitch.set_active(widget.ignoreBrowsers !== false);
-    grid.attach(ignoreBrowsersLabel, 0, rowIdx, 1, 1);
-    grid.attach(ignoreBrowsersSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
-
-    const playerFilterLabel = new Gtk.Label({ label: 'Restrict To Player:', xalign: 0, hexpand: true });
-    const playerFilterSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-    const existingPlayerFilter = widget.playerFilter || '';
-    playerFilterSwitch.set_active(existingPlayerFilter.trim() !== '');
-    const playerFilterBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, halign: Gtk.Align.END });
-    const playerFilterEntry = new Gtk.Entry({
-        text: existingPlayerFilter,
-        placeholder_text: 'e.g. spotify',
-        hexpand: true,
+    const showControlsRow = new Adw.SwitchRow({
+        title: 'Show Player Controls',
+        active: widget.showControls !== false,
     });
-    playerFilterBox.append(playerFilterEntry);
-    playerFilterBox.append(playerFilterSwitch);
-    grid.attach(playerFilterLabel, 0, rowIdx, 1, 1);
-    grid.attach(playerFilterBox, 1, rowIdx, 1, 1);
-    rowIdx++;
+    container.add(showControlsRow);
 
-    playerFilterEntry.set_sensitive(playerFilterSwitch.get_active());
-    playerFilterSwitch.connect('notify::active', () => {
-        playerFilterEntry.set_sensitive(playerFilterSwitch.get_active());
+    const ignoreBrowsersRow = new Adw.SwitchRow({
+        title: 'Ignore Browser Players',
+        active: widget.ignoreBrowsers !== false,
     });
+    container.add(ignoreBrowsersRow);
 
-    // ── 2. Bakelit mód kapcsoló (Mindkét méretre érvényes!) ──
-    const vinylCoverLabel = new Gtk.Label({ label: 'Vinyl Disc Style:', xalign: 0, hexpand: true });
-    const vinylCoverSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-    vinylCoverSwitch.set_active(widget.vinylStyle === true);
-    grid.attach(vinylCoverLabel, 0, rowIdx, 1, 1);
-    grid.attach(vinylCoverSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const playerFilterRow = new Adw.EntryRow({
+        title: 'Restrict To Player (Optional)',
+        text: widget.playerFilter || '',
+    });
+    container.add(playerFilterRow);
 
-    // ── 3. Méretspecifikus opciók ──
-    let coverBgSwitch = null;
-    let visualizerSwitch = null;
-    let vizModeCombo = null;
+    const vinylCoverRow = new Adw.SwitchRow({
+        title: 'Vinyl Disc Style',
+        active: widget.vinylStyle === true,
+    });
+    container.add(vinylCoverRow);
+
+    let coverBgRow = null;
+    let visualizerRow = null;
+    let vizModeRow = null;
     const vizModes = ['bars', 'wave'];
 
     if (isWide) {
-        // Csak a Wide (8x4) verziónál: Borító domináns színe háttérként
-        const coverBgLabel = new Gtk.Label({ label: 'Dominant Cover Background:', xalign: 0, hexpand: true });
-        coverBgSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-        coverBgSwitch.set_active(widget.coverBackground === true);
-        grid.attach(coverBgLabel, 0, rowIdx, 1, 1);
-        grid.attach(coverBgSwitch, 1, rowIdx, 1, 1);
-        rowIdx++;
+        coverBgRow = new Adw.SwitchRow({
+            title: 'Dominant Cover Background',
+            active: widget.coverBackground === true,
+        });
+        container.add(coverBgRow);
     } else {
-        // Csak a Compact (4x4) verziónál: Vizuális spektrum kapcsoló
-        const visualizerLabel = new Gtk.Label({ label: 'Show Audio Spectrum:', xalign: 0, hexpand: true });
-        visualizerSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-        // Ha korábban layoutType === 'visualizer' volt, vagy showVisualizer true:
         const hasVisualizer = widget.showVisualizer === true || widget.layoutType === 'visualizer';
-        visualizerSwitch.set_active(hasVisualizer);
-        grid.attach(visualizerLabel, 0, rowIdx, 1, 1);
-        grid.attach(visualizerSwitch, 1, rowIdx, 1, 1);
-        rowIdx++;
+        visualizerRow = new Adw.SwitchRow({
+            title: 'Show Audio Spectrum',
+            active: hasVisualizer,
+        });
+        container.add(visualizerRow);
 
-        // Spektrum minta választó (Bars vagy Wave)
-        const vizModeLabel = new Gtk.Label({ label: 'Visualizer Pattern:', xalign: 0, hexpand: true });
         const vizLabels = ['16-Bar Equalizer', 'Fluid Sine Wave'];
-        vizModeCombo = new Gtk.DropDown({
-            model: Gtk.StringList.new(vizLabels),
-            valign: Gtk.Align.CENTER,
-            halign: Gtk.Align.END,
+        vizModeRow = new Adw.ComboRow({
+            title: 'Visualizer Pattern',
+            model: new Gtk.StringList({ strings: vizLabels }),
         });
         const currentVizMode = widget.visualizerMode || 'bars';
         const vizIdx = vizModes.indexOf(currentVizMode);
-        vizModeCombo.set_selected(vizIdx >= 0 ? vizIdx : 0);
+        vizModeRow.set_selected(vizIdx >= 0 ? vizIdx : 0);
+        container.add(vizModeRow);
 
-        grid.attach(vizModeLabel, 0, rowIdx, 1, 1);
-        grid.attach(vizModeCombo, 1, rowIdx, 1, 1);
-        rowIdx++;
-
-        // FINOMSÁG: Ha a Vinyl be van kapcsolva, a Visualizer kapcsolók legyenek szürkék (letiltva)
         const updateVisualizerSensitivity = () => {
-            const isVinyl = vinylCoverSwitch.get_active();
-            visualizerSwitch.set_sensitive(!isVinyl);
-            vizModeCombo.set_sensitive(!isVinyl && visualizerSwitch.get_active());
+            const isVinyl = vinylCoverRow.get_active();
+            visualizerRow.set_sensitive(!isVinyl);
+            vizModeRow.set_sensitive(!isVinyl && visualizerRow.get_active());
         };
 
         updateVisualizerSensitivity();
-        vinylCoverSwitch.connect('notify::active', updateVisualizerSensitivity);
-        visualizerSwitch.connect('notify::active', updateVisualizerSensitivity);
+        vinylCoverRow.connect('notify::active', updateVisualizerSensitivity);
+        visualizerRow.connect('notify::active', updateVisualizerSensitivity);
     }
 
-    // ── 4. Mentés összeállítása ──
     saveHandlers.push((target) => {
-        target.showControls = showControlsSwitch.get_active();
-        target.ignoreBrowsers = ignoreBrowsersSwitch.get_active();
-        target.playerFilter = playerFilterSwitch.get_active() ? playerFilterEntry.get_text().trim() : '';
-        target.vinylStyle = vinylCoverSwitch.get_active();
+        target.showControls = showControlsRow.get_active();
+        target.ignoreBrowsers = ignoreBrowsersRow.get_active();
+        target.playerFilter = playerFilterRow.get_text().trim();
+        target.vinylStyle = vinylCoverRow.get_active();
 
-        if (coverBgSwitch) {
-            target.coverBackground = coverBgSwitch.get_active();
+        if (coverBgRow) {
+            target.coverBackground = coverBgRow.get_active();
         }
-
-        if (visualizerSwitch) {
-            target.showVisualizer = visualizerSwitch.get_active();
-            // Tisztítás: a régi layoutType mezőt törölhetjük, már nincs rá szükség
+        if (visualizerRow) {
+            target.showVisualizer = visualizerRow.get_active();
             delete target.layoutType;
         }
-
-        if (vizModeCombo) {
-            target.visualizerMode = vizModes[vizModeCombo.get_selected()] || 'bars';
+        if (vizModeRow) {
+            target.visualizerMode = vizModes[vizModeRow.get_selected()] || 'bars';
         }
     });
-
-    return rowIdx;
 }
 
-export function buildPomodoroSettings(grid, rowIdx, widget, saveHandlers) {
+export function buildPomodoroSettings(container, widget, saveHandlers) {
     const durationFields = [
-        { label: 'Work Duration (Minutes):', field: 'workMinutes', defaultValue: DEFAULT_WORK_MINUTES },
-        { label: 'Short Break (Minutes):', field: 'shortBreakMinutes', defaultValue: DEFAULT_SHORT_BREAK_MINUTES },
-        { label: 'Long Break (Minutes):', field: 'longBreakMinutes', defaultValue: DEFAULT_LONG_BREAK_MINUTES },
+        { title: 'Work Duration (Minutes)', field: 'workMinutes', defaultValue: DEFAULT_WORK_MINUTES },
+        { title: 'Short Break (Minutes)', field: 'shortBreakMinutes', defaultValue: DEFAULT_SHORT_BREAK_MINUTES },
+        { title: 'Long Break (Minutes)', field: 'longBreakMinutes', defaultValue: DEFAULT_LONG_BREAK_MINUTES },
     ];
 
-    const durationSpins = durationFields.map(({ label, field, defaultValue }) => {
-        const rowLabel = new Gtk.Label({ label, xalign: 0, hexpand: true });
-        const spin = Gtk.SpinButton.new_with_range(MIN_POMODORO_MINUTES, MAX_POMODORO_MINUTES, POMODORO_MINUTE_STEP);
-        spin.set_valign(Gtk.Align.CENTER);
-        spin.set_halign(Gtk.Align.END);
-        spin.set_value(widget[field] !== undefined ? widget[field] : defaultValue);
-        grid.attach(rowLabel, 0, rowIdx, 1, 1);
-        grid.attach(spin, 1, rowIdx, 1, 1);
-        rowIdx++;
-        return { field, spin };
+    const spinRows = durationFields.map(({ title, field, defaultValue }) => {
+        const spinRow = new Adw.SpinRow({
+            title,
+            adjustment: new Gtk.Adjustment({
+                lower: MIN_POMODORO_MINUTES,
+                upper: MAX_POMODORO_MINUTES,
+                step_increment: POMODORO_MINUTE_STEP,
+                value: widget[field] !== undefined ? widget[field] : defaultValue,
+            }),
+        });
+        container.add(spinRow);
+        return { field, spinRow };
     });
 
-    const sessionsLabel = new Gtk.Label({ label: 'Sessions Before Long Break:', xalign: 0, hexpand: true });
-    const sessionsSpin = Gtk.SpinButton.new_with_range(MIN_SESSIONS_BEFORE_LONG_BREAK, MAX_SESSIONS_BEFORE_LONG_BREAK, POMODORO_MINUTE_STEP);
-    sessionsSpin.set_valign(Gtk.Align.CENTER);
-    sessionsSpin.set_halign(Gtk.Align.END);
-    sessionsSpin.set_value(widget.sessionsBeforeLongBreak !== undefined ? widget.sessionsBeforeLongBreak : DEFAULT_SESSIONS_BEFORE_LONG_BREAK);
-    grid.attach(sessionsLabel, 0, rowIdx, 1, 1);
-    grid.attach(sessionsSpin, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const sessionsRow = new Adw.SpinRow({
+        title: 'Sessions Before Long Break',
+        adjustment: new Gtk.Adjustment({
+            lower: MIN_SESSIONS_BEFORE_LONG_BREAK,
+            upper: MAX_SESSIONS_BEFORE_LONG_BREAK,
+            step_increment: POMODORO_MINUTE_STEP,
+            value: widget.sessionsBeforeLongBreak !== undefined ? widget.sessionsBeforeLongBreak : DEFAULT_SESSIONS_BEFORE_LONG_BREAK,
+        }),
+    });
+    container.add(sessionsRow);
 
     saveHandlers.push((target) => {
-        durationSpins.forEach(({ field, spin }) => {
-            target[field] = Math.round(spin.get_value());
+        spinRows.forEach(({ field, spinRow }) => {
+            target[field] = Math.round(spinRow.get_value());
         });
-        target.sessionsBeforeLongBreak = Math.round(sessionsSpin.get_value());
+        target.sessionsBeforeLongBreak = Math.round(sessionsRow.get_value());
     });
-
-    return rowIdx;
 }
 
-export function buildAppLauncherSettings(grid, rowIdx, widget, saveHandlers) {
-    const appSelection = createAppSelectionControls(grid, rowIdx, widget.apps || []);
-    rowIdx++;
+export function buildAppLauncherSettings(container, widget, saveHandlers) {
+    const appSelection = createAppSelectionControls(container, widget.apps || []);
 
     saveHandlers.push((target) => {
         target.apps = appSelection.getSelectedApps();
     });
-
-    return rowIdx;
 }
 
-export function buildSlideshowSettings(grid, rowIdx, widget, settings, saveHandlers) {
-    const intervalLabel = new Gtk.Label({ label: 'Change Interval (Seconds):', xalign: 0, hexpand: true });
-    const intervalSpin = Gtk.SpinButton.new_with_range(MIN_SLIDESHOW_INTERVAL_SEC, MAX_SLIDESHOW_INTERVAL_SEC, STEP_SLIDESHOW_INTERVAL_SEC);
-    intervalSpin.set_valign(Gtk.Align.CENTER);
-    intervalSpin.set_halign(Gtk.Align.END);
-    intervalSpin.set_value(widget.intervalSeconds || DEFAULT_SLIDESHOW_INTERVAL_SEC);
+export function buildSlideshowSettings(container, widget, settings, saveHandlers) {
+    const intervalRow = new Adw.SpinRow({
+        title: 'Change Interval (Seconds)',
+        adjustment: new Gtk.Adjustment({
+            lower: MIN_SLIDESHOW_INTERVAL_SEC,
+            upper: MAX_SLIDESHOW_INTERVAL_SEC,
+            step_increment: STEP_SLIDESHOW_INTERVAL_SEC,
+            value: widget.intervalSeconds || DEFAULT_SLIDESHOW_INTERVAL_SEC,
+        }),
+    });
+    container.add(intervalRow);
 
-    grid.attach(intervalLabel, 0, rowIdx, 1, 1);
-    grid.attach(intervalSpin, 1, rowIdx, 1, 1);
-    rowIdx++;
-
-    const captionControls = buildCaptionControls(grid, rowIdx, widget, settings, 'My Slideshow');
-    rowIdx = captionControls.rowIdx;
-    const { captionEntry, showCaptionSwitch, fgColorBtn } = captionControls;
+    const { captionEntry, showCaptionSwitch, fgColorBtn } = buildCaptionControls(container, widget, settings, 'My Slideshow');
 
     saveHandlers.push((target) => {
-        target.intervalSeconds = Math.round(intervalSpin.get_value());
+        target.intervalSeconds = Math.round(intervalRow.get_value());
         target.caption = captionEntry.get_text().trim() || 'My Slideshow';
         target.showCaption = showCaptionSwitch.get_active();
-        target.fgColor = fgColorBtn.get_rgba().to_string();
+        target.fgColor = fgColorBtn.get_rgba ? fgColorBtn.get_rgba().to_string() : widget.fgColor;
     });
-
-    return rowIdx;
 }
 
-export function buildGifSettings(grid, rowIdx, widget, saveHandlers) {
-    const animateLabel = new Gtk.Label({ label: 'Animate GIF / WebP:', xalign: 0, hexpand: true });
-    const animateSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-    animateSwitch.set_active(widget.animateGif !== false);
-
-    grid.attach(animateLabel, 0, rowIdx, 1, 1);
-    grid.attach(animateSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
+export function buildGifSettings(container, widget, saveHandlers) {
+    const animateRow = new Adw.SwitchRow({
+        title: 'Animate GIF / WebP',
+        active: widget.animateGif !== false,
+    });
+    container.add(animateRow);
 
     saveHandlers.push((target) => {
-        target.animateGif = animateSwitch.get_active();
+        target.animateGif = animateRow.get_active();
     });
-
-    return rowIdx;
 }
 
-export function buildImageSettings(grid, rowIdx, widget, settings, saveHandlers, parentWindow) {
-    const imagePathLabel = new Gtk.Label({ label: 'Image File:', xalign: 0, hexpand: true });
-    const imagePathBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, hexpand: true });
-    const imagePathEntry = new Gtk.Entry({ text: widget.imagePath || '', hexpand: true });
-    const imageBrowseBtn = new Gtk.Button({ label: 'Browse...' });
+export function buildImageSettings(container, widget, settings, saveHandlers, parentWindow) {
+    const imageRow = new Adw.EntryRow({
+        title: 'Image File',
+        text: widget.imagePath || '',
+    });
 
-    imageBrowseBtn.connect('clicked', () => {
+    const browseBtn = new Gtk.Button({
+        icon_name: 'document-open-symbolic',
+        valign: Gtk.Align.CENTER,
+        css_classes: ['flat'],
+    });
+    browseBtn.connect('clicked', () => {
         openImageFileDialog(parentWindow, (selectedPath) => {
             if (selectedPath) {
-                imagePathEntry.set_text(selectedPath);
+                imageRow.set_text(selectedPath);
             }
         });
     });
+    imageRow.add_suffix(browseBtn);
+    container.add(imageRow);
 
-    imagePathBox.append(imagePathEntry);
-    imagePathBox.append(imageBrowseBtn);
-    grid.attach(imagePathLabel, 0, rowIdx, 1, 1);
-    grid.attach(imagePathBox, 1, rowIdx, 1, 1);
-    rowIdx++;
-
-    const captionControls = buildCaptionControls(grid, rowIdx, widget, settings, 'My Image');
-    rowIdx = captionControls.rowIdx;
-    const { captionEntry, showCaptionSwitch, fgColorBtn } = captionControls;
+    const { captionEntry, showCaptionSwitch, fgColorBtn } = buildCaptionControls(container, widget, settings, 'My Image');
 
     saveHandlers.push((target) => {
-        target.imagePath = imagePathEntry.get_text().trim();
+        target.imagePath = imageRow.get_text().trim();
         target.caption = captionEntry.get_text().trim() || 'My Image';
         target.showCaption = showCaptionSwitch.get_active();
-        target.fgColor = fgColorBtn.get_rgba().to_string();
+        target.fgColor = fgColorBtn.get_rgba ? fgColorBtn.get_rgba().to_string() : widget.fgColor;
     });
-
-    return rowIdx;
 }
 
-export function buildSystemInfoSettings(grid, rowIdx, widget, saveHandlers) {
-    const typeLabel = new Gtk.Label({ label: 'Monitor Metric:', xalign: 0, hexpand: true });
+export function buildSystemInfoSettings(container, widget, saveHandlers) {
     const types = ['cpu', 'ram', 'disk', 'thermal', 'gpu'];
-    const typeNames = ['CPU Usage', 'RAM Usage', 'Disk Usage','Thermal (CPU)', 'GPU Temp'];
+    const typeNames = ['CPU Usage', 'RAM Usage', 'Disk Usage', 'Thermal (CPU)', 'GPU Temp'];
 
-    const typeCombo = new Gtk.DropDown({
-        model: Gtk.StringList.new(typeNames),
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.END,
+    const typeRow = new Adw.ComboRow({
+        title: 'Monitor Metric',
+        model: new Gtk.StringList({ strings: typeNames }),
     });
-
     const currentType = (widget.systemInfoType || 'cpu').toLowerCase();
     const currentIdx = types.indexOf(currentType);
-    typeCombo.set_selected(currentIdx >= 0 ? currentIdx : 0);
+    typeRow.set_selected(currentIdx >= 0 ? currentIdx : 0);
+    container.add(typeRow);
 
-    grid.attach(typeLabel, 0, rowIdx, 1, 1);
-    grid.attach(typeCombo, 1, rowIdx, 1, 1);
-    rowIdx++;
-
-    // --- Új: Chart megjelenítése kapcsoló ---
-    const chartLabel = new Gtk.Label({ label: 'Show Trend Chart:', xalign: 0, hexpand: true });
-    const chartSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-    chartSwitch.set_active(widget.showChart === true);
-
-    grid.attach(chartLabel, 0, rowIdx, 1, 1);
-    grid.attach(chartSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const chartRow = new Adw.SwitchRow({
+        title: 'Show Trend Chart',
+        active: widget.showChart === true,
+    });
+    container.add(chartRow);
 
     saveHandlers.push((target) => {
-        target.systemInfoType = types[typeCombo.get_selected()] || 'cpu';
-        target.showChart = chartSwitch.get_active();
+        target.systemInfoType = types[typeRow.get_selected()] || 'cpu';
+        target.showChart = chartRow.get_active();
     });
-
-    return rowIdx;
 }
 
-export function buildCurrencyTrackerSettings(grid, rowIdx, widget, saveHandlers) {
-    // A Frankfurter / EKB által hivatalosan támogatott devizák listája
+export function buildCurrencyTrackerSettings(container, widget, saveHandlers) {
     const SUPPORTED_CURRENCIES = [
         'EUR', 'HUF', 'USD', 'GBP', 'CHF', 'CZK', 'PLN', 'AUD', 'BGN', 'BRL',
         'CAD', 'CNY', 'DKK', 'HKD', 'IDR', 'ILS', 'INR', 'ISK', 'JPY', 'KRW',
         'MXN', 'MYR', 'NOK', 'NZD', 'PHP', 'RON', 'SEK', 'SGD', 'THB', 'TRY', 'ZAR'
     ];
 
-    // ── Alap deviza (From / Base) ─────────────────────────────
-    const baseLabel = new Gtk.Label({ label: 'Base Currency (From):', xalign: 0, hexpand: true });
-    const baseCombo = new Gtk.DropDown({
-        model: Gtk.StringList.new(SUPPORTED_CURRENCIES),
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.END,
+    const baseRow = new Adw.ComboRow({
+        title: 'Base Currency (From)',
+        model: new Gtk.StringList({ strings: SUPPORTED_CURRENCIES }),
     });
     const currentBase = (widget.baseCurrency || 'EUR').toUpperCase();
     const baseIdx = SUPPORTED_CURRENCIES.indexOf(currentBase);
-    baseCombo.set_selected(baseIdx >= 0 ? baseIdx : 0);
+    baseRow.set_selected(baseIdx >= 0 ? baseIdx : 0);
+    container.add(baseRow);
 
-    grid.attach(baseLabel, 0, rowIdx, 1, 1);
-    grid.attach(baseCombo, 1, rowIdx, 1, 1);
-    rowIdx++;
-
-    // ── Cél deviza (To / Target) ──────────────────────────────
-    const targetLabel = new Gtk.Label({ label: 'Target Currency (To):', xalign: 0, hexpand: true });
-    const targetCombo = new Gtk.DropDown({
-        model: Gtk.StringList.new(SUPPORTED_CURRENCIES),
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.END,
+    const targetRow = new Adw.ComboRow({
+        title: 'Target Currency (To)',
+        model: new Gtk.StringList({ strings: SUPPORTED_CURRENCIES }),
     });
     const currentTarget = (widget.targetCurrency || 'HUF').toUpperCase();
     const targetIdx = SUPPORTED_CURRENCIES.indexOf(currentTarget);
-    targetCombo.set_selected(targetIdx >= 0 ? targetIdx : SUPPORTED_CURRENCIES.indexOf('HUF'));
+    targetRow.set_selected(targetIdx >= 0 ? targetIdx : SUPPORTED_CURRENCIES.indexOf('HUF'));
+    container.add(targetRow);
 
-    grid.attach(targetLabel, 0, rowIdx, 1, 1);
-    grid.attach(targetCombo, 1, rowIdx, 1, 1);
-    rowIdx++;
-
-    const invertColorsLabel = new Gtk.Label({ label: 'Invert trend colors:', xalign: 0, hexpand: true });
-    const invertColorsSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-    invertColorsSwitch.set_active(widget.invertColors === true);
-    grid.attach(invertColorsLabel, 0, rowIdx, 1, 1);
-    grid.attach(invertColorsSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
-
-    // Mentéskor biztosan a tömbből választott, garantáltan létező devizakód kerül elmentésre
-    saveHandlers.push((target) => {
-        target.baseCurrency = SUPPORTED_CURRENCIES[baseCombo.get_selected()] || 'EUR';
-        target.targetCurrency = SUPPORTED_CURRENCIES[targetCombo.get_selected()] || 'HUF';
-        target.invertColors = invertColorsSwitch.get_active();
+    const invertColorsRow = new Adw.SwitchRow({
+        title: 'Invert Trend Colors',
+        active: widget.invertColors === true,
     });
+    container.add(invertColorsRow);
 
-    return rowIdx;
+    saveHandlers.push((target) => {
+        target.baseCurrency = SUPPORTED_CURRENCIES[baseRow.get_selected()] || 'EUR';
+        target.targetCurrency = SUPPORTED_CURRENCIES[targetRow.get_selected()] || 'HUF';
+        target.invertColors = invertColorsRow.get_active();
+    });
 }
 
-
-export function buildWeatherCardsSettings(grid, rowIdx, widget, saveHandlers) {
+export function buildWeatherCardsSettings(container, widget, saveHandlers) {
     const currentLocation = { name: widget.location || 'London' };
     if (widget.lat !== undefined && widget.lon !== undefined) {
         currentLocation.latitude = widget.lat;
         currentLocation.longitude = widget.lon;
     }
-    const cityPicker = buildOpenMeteoCitySearchRow(grid, 'City Location:', currentLocation, rowIdx++);
+    const cityPicker = buildOpenMeteoCitySearchRow(container, 'City Location', currentLocation);
 
-    // Metrika választó DropDown (mint a System Info-nál)
-    const metricLabel = new Gtk.Label({ label: 'Weather Metric:', xalign: 0, hexpand: true });
     const metrics = [
-        'uv',
-        'humidity',
-        'aqi',
-        'wind',
-        'pressure',
-        'feels_like',
-        'gusts',
-        'dew_point',
-        'cloud',
-        'precipitation',
+        'uv', 'humidity', 'aqi', 'wind', 'pressure', 'feels_like', 'gusts', 'dew_point', 'cloud', 'precipitation',
     ];
     const metricNames = [
-        'UV Index',
-        'Humidity',
-        'Air Quality (AQI)',
-        'Wind Speed',
-        'Pressure',
-        'Feels Like',
-        'Wind Gusts',
-        'Dew Point',
-        'Cloud Cover',
-        'Precipitation',
+        'UV Index', 'Humidity', 'Air Quality (AQI)', 'Wind Speed', 'Pressure', 'Feels Like', 'Wind Gusts', 'Dew Point', 'Cloud Cover', 'Precipitation',
     ];
 
-    const metricCombo = new Gtk.DropDown({
-        model: Gtk.StringList.new(metricNames),
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.END,
+    const metricRow = new Adw.ComboRow({
+        title: 'Weather Metric',
+        model: new Gtk.StringList({ strings: metricNames }),
     });
-
     const currentMetric = (widget.weatherMetric || 'uv').toLowerCase();
     const currentIdx = metrics.indexOf(currentMetric);
-    metricCombo.set_selected(currentIdx >= 0 ? currentIdx : 0);
+    metricRow.set_selected(currentIdx >= 0 ? currentIdx : 0);
+    container.add(metricRow);
 
-    grid.attach(metricLabel, 0, rowIdx, 1, 1);
-    grid.attach(metricCombo, 1, rowIdx, 1, 1);
-    rowIdx++;
-
-    // Trend chart kapcsoló
-    const chartLabel = new Gtk.Label({ label: 'Show Trend Chart:', xalign: 0, hexpand: true });
-    const chartSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-    chartSwitch.set_active(widget.showChart === true);
-
-    grid.attach(chartLabel, 0, rowIdx, 1, 1);
-    grid.attach(chartSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const chartRow = new Adw.SwitchRow({
+        title: 'Show Trend Chart',
+        active: widget.showChart === true,
+    });
+    container.add(chartRow);
 
     saveHandlers.push((target) => {
         const selectedCity = cityPicker.getSelectedLocation();
@@ -867,139 +749,100 @@ export function buildWeatherCardsSettings(grid, rowIdx, widget, saveHandlers) {
                 target.lon = selectedCity.longitude;
             }
         }
-        target.weatherMetric = metrics[metricCombo.get_selected()] || 'uv';
-        target.showChart = chartSwitch.get_active();
+        target.weatherMetric = metrics[metricRow.get_selected()] || 'uv';
+        target.showChart = chartRow.get_active();
     });
-
-    return rowIdx;
 }
 
-export function buildTimerSettings(grid, rowIdx, widget, saveHandlers) {
-    const labelRow = new Gtk.Label({ label: 'Timer Label:', xalign: 0, hexpand: true });
-    const labelEntry = new Gtk.Entry({ text: widget.timerLabel || 'Időzítő', hexpand: true });
-    grid.attach(labelRow, 0, rowIdx, 1, 1);
-    grid.attach(labelEntry, 1, rowIdx, 1, 1);
-    rowIdx++;
+export function buildTimerSettings(container, widget, saveHandlers) {
+    const labelRow = new Adw.EntryRow({
+        title: 'Timer Label',
+        text: widget.timerLabel || 'Timer',
+    });
+    container.add(labelRow);
 
-    const durationLabel = new Gtk.Label({ label: 'Duration (Minutes):', xalign: 0, hexpand: true });
     const currentMinutes = Math.round((widget.timerDurationSeconds || 300) / 60);
-    const durationSpin = Gtk.SpinButton.new_with_range(1, 720, 1);
-    durationSpin.set_valign(Gtk.Align.CENTER);
-    durationSpin.set_halign(Gtk.Align.END);
-    durationSpin.set_value(currentMinutes);
-    grid.attach(durationLabel, 0, rowIdx, 1, 1);
-    grid.attach(durationSpin, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const durationRow = new Adw.SpinRow({
+        title: 'Duration (Minutes)',
+        adjustment: new Gtk.Adjustment({ lower: 1, upper: 720, step_increment: 1, value: currentMinutes }),
+    });
+    container.add(durationRow);
 
     saveHandlers.push((target) => {
-        target.timerLabel = labelEntry.get_text().trim() || 'Timer';
-        target.timerDurationSeconds = Math.round(durationSpin.get_value()) * 60;
+        target.timerLabel = labelRow.get_text().trim() || 'Timer';
+        target.timerDurationSeconds = Math.round(durationRow.get_value()) * 60;
     });
-
-    return rowIdx;
 }
 
-export function buildCountdownSettings(grid, rowIdx, widget, saveHandlers) {
-    const nameLabel = new Gtk.Label({ label: 'Event Name:', xalign: 0, hexpand: true });
-    const nameEntry = new Gtk.Entry({ text: widget.eventName || 'Goal', hexpand: true });
-    grid.attach(nameLabel, 0, rowIdx, 1, 1);
-    grid.attach(nameEntry, 1, rowIdx, 1, 1);
-    rowIdx++;
+export function buildCountdownSettings(container, widget, saveHandlers) {
+    const nameRow = new Adw.EntryRow({
+        title: 'Event Name',
+        text: widget.eventName || 'Goal',
+    });
+    container.add(nameRow);
 
-    const dateLabel = new Gtk.Label({ label: 'Target Date (YYYY-MM-DD):', xalign: 0, hexpand: true });
     const rawDate = widget.targetDate ? widget.targetDate.split('T')[0] : '';
-    const dateEntry = new Gtk.Entry({ text: rawDate, placeholder_text: 'YYYY-MM-DD', hexpand: true });
-    grid.attach(dateLabel, 0, rowIdx, 1, 1);
-    grid.attach(dateEntry, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const dateRow = new Adw.EntryRow({
+        title: 'Target Date (YYYY-MM-DD)',
+        text: rawDate,
+    });
+    container.add(dateRow);
 
     saveHandlers.push((target) => {
-        target.eventName = nameEntry.get_text().trim() || 'Goal';
-        const d = dateEntry.get_text().trim();
+        target.eventName = nameRow.get_text().trim() || 'Goal';
+        const d = dateRow.get_text().trim();
         if (d) {
             target.targetDate = `${d}T00:00:00`;
         }
     });
-
-    return rowIdx;
 }
 
-export function buildPingSettings(grid, rowIdx, widget, saveHandlers) {
-    // 1. Host / IP cím mező
-    const hostLabel = new Gtk.Label({ label: 'Host / IP Address:', xalign: 0, hexpand: true });
-    const hostEntry = new Gtk.Entry({
+export function buildPingSettings(container, widget, saveHandlers) {
+    const hostRow = new Adw.EntryRow({
+        title: 'Host / IP Address',
         text: widget.pingHost || '1.1.1.1',
-        placeholder_text: 'e.g. 1.1.1.1 or google.com',
-        hexpand: true,
     });
-    grid.attach(hostLabel, 0, rowIdx, 1, 1);
-    grid.attach(hostEntry, 1, rowIdx, 1, 1);
-    rowIdx++;
+    container.add(hostRow);
 
-    // 2. Címke (Label) mező
-    const nameLabel = new Gtk.Label({ label: 'Label:', xalign: 0, hexpand: true });
-    const nameEntry = new Gtk.Entry({
+    const nameRow = new Adw.EntryRow({
+        title: 'Label',
         text: widget.pingLabel || 'Cloudflare',
-        placeholder_text: 'e.g. Cloudflare',
-        hexpand: true,
     });
-    grid.attach(nameLabel, 0, rowIdx, 1, 1);
-    grid.attach(nameEntry, 1, rowIdx, 1, 1);
-    rowIdx++;
+    container.add(nameRow);
 
-    // 3. Trend chart kapcsoló (pontosan úgy, mint a buildSystemInfoSettings-ben)
-    const chartLabel = new Gtk.Label({ label: 'Show Trend Chart:', xalign: 0, hexpand: true });
-    const chartSwitch = new Gtk.Switch({ valign: Gtk.Align.CENTER, halign: Gtk.Align.END });
-    chartSwitch.set_active(widget.showChart !== false); // Alapból be van kapcsolva
-
-    grid.attach(chartLabel, 0, rowIdx, 1, 1);
-    grid.attach(chartSwitch, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const chartRow = new Adw.SwitchRow({
+        title: 'Show Trend Chart',
+        active: widget.showChart !== false,
+    });
+    container.add(chartRow);
 
     saveHandlers.push((target) => {
-        const host = hostEntry.get_text().trim();
+        const host = hostRow.get_text().trim();
         target.pingHost = host || '1.1.1.1';
-        target.pingLabel = nameEntry.get_text().trim() || 'Ping';
-        target.showChart = chartSwitch.get_active();
+        target.pingLabel = nameRow.get_text().trim() || 'Ping';
+        target.showChart = chartRow.get_active();
     });
-
-    return rowIdx;
 }
 
-export function buildCryptoTrackerSettings(grid, rowIdx, widget, saveHandlers) {
-    // A CoinGecko simple/price és markets által támogatott leggyakoribb fiat devizák
-    const SUPPORTED_CURRENCIES = [
-        'HUF', 'USD', 'EUR', 'GBP', 'CHF', 'CZK', 'PLN', 'CAD', 'AUD', 'JPY'
-    ];
+export function buildCryptoTrackerSettings(container, widget, saveHandlers) {
+    const SUPPORTED_CURRENCIES = ['HUF', 'USD', 'EUR', 'GBP', 'CHF', 'CZK', 'PLN', 'CAD', 'AUD', 'JPY'];
 
-    // Cél deviza (Target / vs_currency)
-    const targetLabel = new Gtk.Label({ label: 'Target Currency:', xalign: 0, hexpand: true });
-    const targetCombo = new Gtk.DropDown({
-        model: Gtk.StringList.new(SUPPORTED_CURRENCIES),
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.END,
+    const targetRow = new Adw.ComboRow({
+        title: 'Target Currency',
+        model: new Gtk.StringList({ strings: SUPPORTED_CURRENCIES }),
     });
-
     const currentTarget = (widget.targetCurrency || 'HUF').toUpperCase();
     const targetIdx = SUPPORTED_CURRENCIES.indexOf(currentTarget);
-    targetCombo.set_selected(targetIdx >= 0 ? targetIdx : 0);
-
-    grid.attach(targetLabel, 0, rowIdx, 1, 1);
-    grid.attach(targetCombo, 1, rowIdx, 1, 1);
-    rowIdx++;
+    targetRow.set_selected(targetIdx >= 0 ? targetIdx : 0);
+    container.add(targetRow);
 
     saveHandlers.push((target) => {
-        target.targetCurrency = SUPPORTED_CURRENCIES[targetCombo.get_selected()] || 'HUF';
+        target.targetCurrency = SUPPORTED_CURRENCIES[targetRow.get_selected()] || 'HUF';
     });
-
-    return rowIdx;
 }
 
-export function buildHistoryTrackerSettings(grid, rowIdx, widget, saveHandlers) {
-    // 1. Nyelvválasztó
-    const langLabel = new Gtk.Label({ label: 'Wikipedia Language:', xalign: 0, hexpand: true });
+export function buildHistoryTrackerSettings(container, widget, saveHandlers) {
     const languages = [
-       // { code: 'hu', name: 'Magyar (Hungarian)' },
         { code: 'en', name: 'English' },
         { code: 'de', name: 'Deutsch' },
         { code: 'fr', name: 'Français' },
@@ -1007,22 +850,15 @@ export function buildHistoryTrackerSettings(grid, rowIdx, widget, saveHandlers) 
     ];
     const langNames = languages.map(l => l.name);
 
-    const langCombo = new Gtk.DropDown({
-        model: Gtk.StringList.new(langNames),
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.END,
+    const langRow = new Adw.ComboRow({
+        title: 'Wikipedia Language',
+        model: new Gtk.StringList({ strings: langNames }),
     });
-
-    const currentLang = widget.language || 'hu';
+    const currentLang = widget.language || 'en';
     const langIdx = languages.findIndex(l => l.code === currentLang);
-    langCombo.set_selected(langIdx >= 0 ? langIdx : 0);
+    langRow.set_selected(langIdx >= 0 ? langIdx : 0);
+    container.add(langRow);
 
-    grid.attach(langLabel, 0, rowIdx, 1, 1);
-    grid.attach(langCombo, 1, rowIdx, 1, 1);
-    rowIdx++;
-
-    // 2. Kategóriaválasztó
-    const typeLabel = new Gtk.Label({ label: 'Event Category:', xalign: 0, hexpand: true });
     const categories = [
         { key: 'selected', name: 'Curated Events' },
         { key: 'events', name: 'All Events' },
@@ -1031,99 +867,73 @@ export function buildHistoryTrackerSettings(grid, rowIdx, widget, saveHandlers) 
     ];
     const categoryNames = categories.map(c => c.name);
 
-    const categoryCombo = new Gtk.DropDown({
-        model: Gtk.StringList.new(categoryNames),
-        valign: Gtk.Align.CENTER,
-        halign: Gtk.Align.END,
+    const categoryRow = new Adw.ComboRow({
+        title: 'Event Category',
+        model: new Gtk.StringList({ strings: categoryNames }),
     });
-
     const currentCat = widget.category || 'selected';
     const catIdx = categories.findIndex(c => c.key === currentCat);
-    categoryCombo.set_selected(catIdx >= 0 ? catIdx : 0);
+    categoryRow.set_selected(catIdx >= 0 ? catIdx : 0);
+    container.add(categoryRow);
 
-    grid.attach(typeLabel, 0, rowIdx, 1, 1);
-    grid.attach(categoryCombo, 1, rowIdx, 1, 1);
-    rowIdx++;
-
-    // Mentés kezelő
     saveHandlers.push((target) => {
-        target.language = languages[langCombo.get_selected()]?.code || 'hu';
-        target.category = categories[categoryCombo.get_selected()]?.key || 'selected';
+        target.language = languages[langRow.get_selected()]?.code || 'en';
+        target.category = categories[categoryRow.get_selected()]?.key || 'selected';
     });
-
-    return rowIdx;
 }
 
-
-export function buildStorageBarSettings(grid, rowIdx, widget, saveHandlers, parentWindow) {
-    const pathLabel = new Gtk.Label({ label: 'Storage Path / Partition:', xalign: 0, hexpand: true });
-    const pathBox = new Gtk.Box({ orientation: Gtk.Orientation.HORIZONTAL, spacing: 6, hexpand: true });
-    
-    const pathEntry = new Gtk.Entry({
+export function buildStorageBarSettings(container, widget, saveHandlers, parentWindow) {
+    const pathRow = new Adw.EntryRow({
+        title: 'Storage Path / Partition',
         text: widget.storagePath || '/',
-        placeholder_text: 'pl. / vagy /home/felhasznalo',
-        hexpand: true,
     });
 
-    const browseBtn = new Gtk.Button({ label: 'Browse...' });
+    const browseBtn = new Gtk.Button({
+        icon_name: 'folder-open-symbolic',
+        valign: Gtk.Align.CENTER,
+        css_classes: ['flat'],
+    });
+
     browseBtn.connect('clicked', () => {
-        const fileChooser = new Gtk.FileChooserNative({
-            title: 'Select Folder / Partition',
-            transient_for: parentWindow || null,
-            action: Gtk.FileChooserAction.SELECT_FOLDER,
-            accept_label: 'Select',
-            cancel_label: 'Cancel',
-        });
-
-        fileChooser.connect('response', (dialog, responseId) => {
-            if (responseId === Gtk.ResponseType.ACCEPT) {
-                const folder = dialog.get_file();
-                if (folder) {
-                    pathEntry.set_text(folder.get_path());
+        if (Gtk.FileDialog) {
+            const dialog = new Gtk.FileDialog({ title: 'Select Folder / Partition' });
+            dialog.select_folder(parentWindow || null, null, (dlg, result) => {
+                try {
+                    const folder = dlg.select_folder_finish(result);
+                    if (folder) pathRow.set_text(folder.get_path());
+                } catch (e) {
+                    if (!e.matches(Gtk.DialogError, Gtk.DialogError.DISMISSED)) {
+                        console.error('Folder dialog error:', e);
+                    }
                 }
-            }
-            dialog.destroy();
-        });
-        fileChooser.show();
+            });
+        }
     });
 
-    pathBox.append(pathEntry);
-    pathBox.append(browseBtn);
-    grid.attach(pathLabel, 0, rowIdx, 1, 1);
-    grid.attach(pathBox, 1, rowIdx, 1, 1);
-    rowIdx++;
+    pathRow.add_suffix(browseBtn);
+    container.add(pathRow);
 
     saveHandlers.push((target) => {
-        const customPath = pathEntry.get_text().trim();
+        const customPath = pathRow.get_text().trim();
         target.storagePath = customPath || '/';
     });
-
-    return rowIdx;
 }
 
-export function buildWatermindSettings(grid, rowIdx, widget, saveHandlers) {
-    const targetLabel = new Gtk.Label({ label: 'Hourly Target (ml/h):', xalign: 0, hexpand: true });
-    const targetSpin = Gtk.SpinButton.new_with_range(50, 1000, 25);
-    targetSpin.set_valign(Gtk.Align.CENTER);
-    targetSpin.set_halign(Gtk.Align.END);
-    targetSpin.set_value(widget.hourlyTargetMl || 250);
-    grid.attach(targetLabel, 0, rowIdx, 1, 1);
-    grid.attach(targetSpin, 1, rowIdx, 1, 1);
-    rowIdx++;
+export function buildWatermindSettings(container, widget, saveHandlers) {
+    const targetRow = new Adw.SpinRow({
+        title: 'Hourly Target (ml/h)',
+        adjustment: new Gtk.Adjustment({ lower: 50, upper: 1000, step_increment: 25, value: widget.hourlyTargetMl || 250 }),
+    });
+    container.add(targetRow);
 
-    const intervalLabel = new Gtk.Label({ label: 'Reminder Interval (Minutes):', xalign: 0, hexpand: true });
-    const intervalSpin = Gtk.SpinButton.new_with_range(15, 180, 5);
-    intervalSpin.set_valign(Gtk.Align.CENTER);
-    intervalSpin.set_halign(Gtk.Align.END);
-    intervalSpin.set_value(widget.intervalMinutes || 60);
-    grid.attach(intervalLabel, 0, rowIdx, 1, 1);
-    grid.attach(intervalSpin, 1, rowIdx, 1, 1);
-    rowIdx++;
+    const intervalRow = new Adw.SpinRow({
+        title: 'Reminder Interval (Minutes)',
+        adjustment: new Gtk.Adjustment({ lower: 15, upper: 180, step_increment: 5, value: widget.intervalMinutes || 60 }),
+    });
+    container.add(intervalRow);
 
     saveHandlers.push((target) => {
-        target.hourlyTargetMl = Math.round(targetSpin.get_value());
-        target.intervalMinutes = Math.round(intervalSpin.get_value());
+        target.hourlyTargetMl = Math.round(targetRow.get_value());
+        target.intervalMinutes = Math.round(intervalRow.get_value());
     });
-
-    return rowIdx;
 }

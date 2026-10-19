@@ -4,7 +4,7 @@ import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Cairo from 'cairo';
 
-import { createBackgroundLayer, buildControlsColumn, updateControlButtonScaling } from './controls.js';
+import { createBackgroundLayer, buildControlsColumn, updateControlButtonScaling, handlePlayPauseAction, connectControlButton } from './controls.js';
 import { resolveWidgetForegroundColor, resolveExplicitFontFamily } from '../../utils/widgetUtils.js';
 import { attachResponsiveScaler } from '../../shell/widgetUIUtils.js';
 import { isActorDestroyed } from '../../utils/actorLifecycle.js';
@@ -101,6 +101,9 @@ export function buildSmallLayout(config, state) {
         discActor = new St.Widget({
             x_align: Clutter.ActorAlign.CENTER,
             y_align: Clutter.ActorAlign.CENTER,
+            reactive: true,       // <-- Kattinthatóvá tesszük
+            can_focus: true,
+            track_hover: true,
         });
         discActor.set_pivot_point(0.5, 0.5);
 
@@ -243,6 +246,9 @@ export function buildSmallLayout(config, state) {
             } else {
                 stopSpinning();
             }
+        });
+        connectControlButton(discActor, state, () => {
+            handlePlayPauseAction(state);
         });
     }
 
