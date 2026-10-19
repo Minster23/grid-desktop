@@ -81,17 +81,17 @@ export function resolveUse24h(widgetData) {
  * Calculates grid cell dimensions from canvas size and column count.
  * Returns { cellSize, cellTotalWidth, cellTotalHeight, gridRows }.
  */
-export function calculateGridDimensions(width, height, preferredCols = COLUMNS_COUNT) {
+export function calculateGridDimensions(width, height, preferredCols = COLUMNS_COUNT, customCellSize = 34) {
     const w = (Number.isFinite(width) && width > 0) ? width : 1920;
     const h = (Number.isFinite(height) && height > 0) ? height : 1080;
 
-    const cellTotal = BASE_CELL_SIZE + GRID_GAP_PX; // ~38px egy cellalépés
-    const cellSize = BASE_CELL_SIZE;
+    const baseCell = (Number.isFinite(customCellSize) && customCellSize > 0) ? customCellSize : BASE_CELL_SIZE;
+    const cellTotal = baseCell + GRID_GAP_PX;
+    const cellSize = baseCell;
 
     const availableWidth = Math.max(1, w - (GRID_MARGIN_PX * 2));
     const availableHeight = Math.max(1, h - (GRID_MARGIN_PX * 2));
 
-    // Képernyőfelbontáshoz igazodó oszlop- és sorszám számítás
     const gridCols = Math.max(1, Math.floor((availableWidth + GRID_GAP_PX) / cellTotal));
     const gridRows = Math.max(1, Math.floor((availableHeight + GRID_GAP_PX) / cellTotal));
 
@@ -507,7 +507,7 @@ const SIZE_PRESETS = {
     'sun-schedule': [[4, 4], [5, 5], [6, 6]],
     'musicSmall': [[4, 4], [5, 5], [6, 6]],
     'musicWide': [[8, 4], [10, 5], [12, 6]],
-    'calendar': [[4, 4], [5, 5], [5, 6]],
+    'calendar': [[4, 4], [5, 5], [6, 6]],
     'calendar-grid': [[5, 4], [6, 5], [8, 7]],
     'system-dashboard': [[4, 4], [5, 5], [6, 6]],
     'system-info': [[2, 2], [3, 3], [4, 4]],

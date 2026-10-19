@@ -2,30 +2,29 @@ import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
 import Pango from 'gi://Pango';
-import { SECONDARY_OPACITY, cssColorToRgba, resolveExplicitFontFamily, resolveWidgetBackgroundColor, resolveWidgetForegroundColor } from '../utils/widgetUtils.js';
-import { createWidgetContainer, registerWidgetCleanup, attachResponsiveScaler, connectTimerCleanup } from '../shell/widgetUIUtils.js';
+import { 
+    cssColorToRgba, 
+    resolveExplicitFontFamily, 
+    resolveWidgetBackgroundColor, 
+    resolveWidgetForegroundColor 
+} from '../utils/widgetUtils.js';
+import { 
+    createWidgetContainer, 
+    registerWidgetCleanup, 
+    attachResponsiveScaler, 
+    connectTimerCleanup 
+} from '../shell/widgetUIUtils.js';
 import { subscribeToFeed } from '../utils/rssEngine.js';
 import { isActorDestroyed } from '../utils/actorLifecycle.js';
 
-const REF_WIDTH_PX = 240;
-const REF_HEIGHT_PX = 240;
-const TITLEBAR_PADDING_V_PX = 10;
-const TITLEBAR_PADDING_H_PX = 14;
-const CONTENT_PADDING_PX = 14;
-const FOOTER_PADDING_V_PX = 8;
-const ARTICLE_TITLE_MAX_CHARS = 110;
-const SNIPPET_MAX_CHARS = 160;
-const SOURCE_NAME_MAX_CHARS = 22;
+const REF_WIDTH_PX = 220;
+const REF_HEIGHT_PX = 220;
+const ARTICLE_TITLE_MAX_CHARS = 140;
+const SNIPPET_MAX_CHARS = 400;
+const SOURCE_NAME_MAX_CHARS = 30;
 const BORDER_ALPHA = 0.14;
 
-const SOURCE_FONT_SIZE_PX = 11;
-const TITLE_FONT_SIZE_PX = 12;
-const SNIPPET_FONT_SIZE_PX = 10;
-const FOOTER_FONT_SIZE_PX = 9;
-const TITLE_DISPLAY_FONT_SIZE_PX = TITLE_FONT_SIZE_PX + 4;
-const SNIPPET_DISPLAY_FONT_SIZE_PX = SNIPPET_FONT_SIZE_PX + 2;
-
-const ROTATE_INTERVAL_SECONDS = 5;
+const ROTATE_INTERVAL_SECONDS = 15;
 const FADE_DURATION_MS = 150;
 const MAX_VISIBLE_DOTS = 5;
 const MIN_REFRESH_MINUTES = 5;
@@ -59,11 +58,9 @@ function relativeTimeFromIso(dateIso) {
 export function createRssHeadlinesNode(config, width, height, xPosition, yPosition) {
     const bgColor = resolveWidgetBackgroundColor(config);
     const textColor = resolveWidgetForegroundColor(config);
-    const fontFamily = resolveExplicitFontFamily(config);
+    const fontFamily = resolveExplicitFontFamily(config) || 'Sans';
     const fontCss = fontFamily ? `font-family: ${fontFamily}; ` : '';
     const borderRadius = config.appliedBorderRadius || 0;
-    const accentHex = config.globalAccentColor || '#3584e4';
-    const accentRgba = (alpha) => cssColorToRgba(accentHex, alpha);
     const textRgba = (alpha) => cssColorToRgba(textColor, alpha);
     const container = createWidgetContainer(config, width, height, xPosition, yPosition);
 
@@ -76,59 +73,101 @@ export function createRssHeadlinesNode(config, width, height, xPosition, yPositi
     let dotWidgets = [];
     let scale = Math.min(width / REF_WIDTH_PX, height / REF_HEIGHT_PX);
 
-    const mainBox = new St.BoxLayout({
+    const mainLayout = new St.BoxLayout({
         orientation: Clutter.Orientation.VERTICAL,
         x_expand: true,
         y_expand: true,
     });
-    container.add_child(mainBox);
+    container.add_child(mainLayout);
 
-    const titleBar = new St.BoxLayout({
+    // ── Fejléc ──
+    const headerBox = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
-        x_align: Clutter.ActorAlign.FILL,
+        x_expand: true,
+        y_align: Clutter.ActorAlign.CENTER,
     });
-    const sourceLabel = new St.Label({ text: '', y_align: Clutter.ActorAlign.CENTER });
-    titleBar.add_child(sourceLabel);
-    mainBox.add_child(titleBar);
 
-    const contentArea = new St.BoxLayout({
-        orientation: Clutter.Orientation.VERTICAL,
+    const sourceLabel = new St.Label({
+        text: 'Feed',
+        x_expand: true,
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+    sourceLabel.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+    headerBox.add_child(sourceLabel);
+    mainLayout.add_child(headerBox);
+
+    // ── Törzs: ScrollView (pontosan mint a TodayHistory-ban) ──
+    const scrollView = new St.ScrollView({
+        hscrollbar_policy: St.PolicyType.NEVER,
+        vscrollbar_policy: St.PolicyType.AUTOMATIC,
+        overlay_scrollbars: true,
         x_expand: true,
         y_expand: true,
     });
-    const articleTitle = new St.Label({ text: '' });
+    mainLayout.add_child(scrollView);
+
+    const bodyBox = new St.BoxLayout({
+        orientation: Clutter.Orientation.VERTICAL,
+        x_expand: true,
+    });
+    scrollView.set_child(bodyBox);
+
+    // Cím: BOLD
+    const articleTitle = new St.Label({
+        text: '',
+        x_expand: true,
+    });
+    articleTitle.clutter_text.line_wrap = true;
+    articleTitle.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+    articleTitle.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+    bodyBox.add_child(articleTitle);
+
+    // Leírás: Normál szöveg
     const articleSnippet = new St.Label({
         text: '',
         x_expand: true,
-        y_expand: true,
-        y_align: Clutter.ActorAlign.CENTER,
     });
-    contentArea.add_child(articleTitle);
-    contentArea.add_child(articleSnippet);
-    mainBox.add_child(contentArea);
+    articleSnippet.clutter_text.line_wrap = true;
+    articleSnippet.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+    articleSnippet.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+    bodyBox.add_child(articleSnippet);
 
-    const footerBar = new St.BoxLayout({
-        orientation: Clutter.Orientation.HORIZONTAL,
-        x_align: Clutter.ActorAlign.FILL,
-    });
-    const timeLabel = new St.Label({ text: '', y_align: Clutter.ActorAlign.CENTER });
-    const dotsRow = new St.BoxLayout({
+    // ── Lábléc ──
+    const footerBox = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
         x_expand: true,
-        x_align: Clutter.ActorAlign.END,
-        style: 'spacing: 4px;',
+        y_align: Clutter.ActorAlign.CENTER,
     });
-    footerBar.add_child(timeLabel);
-    footerBar.add_child(dotsRow);
-    mainBox.add_child(footerBar);
+
+    const timeLabel = new St.Label({
+        text: '',
+        x_expand: true,
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+
+    const dotsRow = new St.BoxLayout({
+        orientation: Clutter.Orientation.HORIZONTAL,
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+
+    footerBox.add_child(timeLabel);
+    footerBox.add_child(dotsRow);
+    mainLayout.add_child(footerBox);
 
     function renderDots() {
         dotsRow.destroy_all_children();
         dotWidgets = [];
         const visibleCount = Math.min(articles.length, MAX_VISIBLE_DOTS);
         for (let index = 0; index < visibleCount; index++) {
-            const dot = new St.Widget({
+            const dot = new St.Button({
+                reactive: true,
+                can_focus: true,
                 y_align: Clutter.ActorAlign.CENTER,
+            });
+            dot.connect('clicked', () => {
+                currentIndex = index;
+                applyArticle();
+                restartRotationTimer();
             });
             dotsRow.add_child(dot);
             dotWidgets.push(dot);
@@ -136,7 +175,6 @@ export function createRssHeadlinesNode(config, width, height, xPosition, yPositi
         updateActiveDot();
     }
 
-    // Restyles the existing dots for the current position.
     function updateActiveDot() {
         if (!dotWidgets.length) return;
         const activeIndex = currentIndex % MAX_VISIBLE_DOTS;
@@ -144,19 +182,27 @@ export function createRssHeadlinesNode(config, width, height, xPosition, yPositi
             if (isActorDestroyed(container)) return;
             const isActive = index === activeIndex;
             dot.style = `width: ${isActive ? Math.round(10 * scale) : Math.round(4 * scale)}px;`
-                + `height: ${Math.round(4 * scale)}px; border-radius: ${Math.round(scale)}px;`
-                + `background-color: ${textColor};`
+                + `height: ${Math.round(4 * scale)}px; border-radius: ${Math.round(2 * scale)}px;`
+                + `background-color: ${textColor}; margin: 0 ${Math.round(2 * scale)}px;`
                 + `opacity: ${isActive ? 1 : 0.27};`;
         });
     }
 
+    function resetScroll() {
+        try {
+            const adj = scrollView.vscroll?.adjustment || scrollView.vadjustment;
+            if (adj) adj.set_value(0);
+        } catch (e) {}
+    }
+
     function applyArticle() {
         if (!hasFeed) {
-            sourceLabel.text = 'RSS Headlines';
+            sourceLabel.text = 'Feed';
             articleTitle.text = 'No feed configured';
             articleSnippet.text = 'Add a feed URL through the widget settings.';
             timeLabel.text = '';
             renderDots();
+            resetScroll();
             return;
         }
         if (articles.length === 0) {
@@ -164,66 +210,52 @@ export function createRssHeadlinesNode(config, width, height, xPosition, yPositi
             articleSnippet.text = '';
             timeLabel.text = '';
             renderDots();
+            resetScroll();
             return;
         }
         const article = articles[currentIndex % articles.length];
         articleTitle.text = clampText(article.title, ARTICLE_TITLE_MAX_CHARS);
         articleSnippet.text = clampText(article.summary, SNIPPET_MAX_CHARS);
         timeLabel.text = relativeTimeFromIso(article.dateIso);
+
         const visibleCount = Math.min(articles.length, MAX_VISIBLE_DOTS);
-        if (visibleCount !== dotWidgets.length)
+        if (visibleCount !== dotWidgets.length) {
             renderDots();
-        else
+        } else {
             updateActiveDot();
+        }
+
+        resetScroll();
     }
 
     function rotateArticle(step) {
         if (articles.length === 0 || isActorDestroyed(container)) return;
         currentIndex = ((currentIndex + step) % articles.length + articles.length) % articles.length;
         applyArticle();
-        if (!contentArea.mapped) return;
-        contentArea.opacity = 0;
-        contentArea.ease({
+        if (!bodyBox.mapped) return;
+        bodyBox.opacity = 0;
+        bodyBox.ease({
             opacity: 255,
             duration: FADE_DURATION_MS,
             mode: Clutter.AnimationMode.EASE_IN_QUAD,
         });
     }
 
-    // One wheel notch can emit several events; collapse them into a single step.
-    const SCROLL_STEP_COOLDOWN_MS = 250;
-    let lastScrollAdvanceMs = 0;
-    let smoothScrollAccumulator = 0;
-    container.connect('scroll-event', (_actor, event) => {
-        if (articles.length === 0 || isActorDestroyed(container)) return Clutter.EVENT_PROPAGATE;
-        const direction = event.get_scroll_direction();
-
-        let step = 0;
-        if (direction === Clutter.ScrollDirection.DOWN || direction === Clutter.ScrollDirection.RIGHT) {
-            step = 1;
-        } else if (direction === Clutter.ScrollDirection.UP || direction === Clutter.ScrollDirection.LEFT) {
-            step = -1;
-        } else if (direction === Clutter.ScrollDirection.SMOOTH) {
-            const [, , deltaY] = event.get_scroll_delta();
-            smoothScrollAccumulator += deltaY;
-            if (Math.abs(smoothScrollAccumulator) >= 1) {
-                step = smoothScrollAccumulator > 0 ? 1 : -1;
-                smoothScrollAccumulator = 0;
-            }
+    function restartRotationTimer() {
+        if (state.timerId) {
+            GLib.source_remove(state.timerId);
+            state.timerId = null;
         }
-        if (step === 0) return Clutter.EVENT_STOP;
-
-        const nowMs = GLib.get_monotonic_time() / 1000;
-        if (nowMs - lastScrollAdvanceMs < SCROLL_STEP_COOLDOWN_MS) return Clutter.EVENT_STOP;
-        lastScrollAdvanceMs = nowMs;
-        rotateArticle(step);
-        return Clutter.EVENT_STOP;
-    });
+        state.timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, ROTATE_INTERVAL_SECONDS, () => {
+            if (isActorDestroyed(container)) return GLib.SOURCE_REMOVE;
+            rotateArticle(1);
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
 
     connectTimerCleanup(container, state);
     registerWidgetCleanup(container, () => {
-        if (state.releaseFeed)
-            state.releaseFeed();
+        if (state.releaseFeed) state.releaseFeed();
         state.releaseFeed = null;
     });
 
@@ -237,37 +269,38 @@ export function createRssHeadlinesNode(config, width, height, xPosition, yPositi
         });
     }
 
-    state.timerId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, ROTATE_INTERVAL_SECONDS, () => {
-        rotateArticle(1);
-        return GLib.SOURCE_CONTINUE;
-    });
+    restartRotationTimer();
 
+    // ── Reszponzív skálázás beállítása ──
     function applyLayout(currentWidth, currentHeight) {
         if (!currentWidth || !currentHeight) return;
         scale = Math.min(currentWidth / REF_WIDTH_PX, currentHeight / REF_HEIGHT_PX);
-        const px = (v) => Math.max(1, Math.round(v * scale));
+
+        const padding = Math.max(8, Math.round(12 * scale));
+        const titleFontSize = Math.max(9, Math.round(10.5 * scale));
+        const articleTitleSize = Math.max(12, Math.round(14 * scale));
+        const snippetSize = Math.max(11, Math.round(13 * scale));
+        const footerFontSize = Math.max(8, Math.round(8.5 * scale));
 
         container.style = `${fontCss}background-color: ${bgColor}; border-radius: ${borderRadius}px;`
             + `border: 1px solid ${textRgba(BORDER_ALPHA)};`;
 
-        titleBar.style = `padding: ${px(TITLEBAR_PADDING_V_PX)}px ${px(TITLEBAR_PADDING_H_PX)}px;`
-            + `background-color: ${textRgba(0.04)};`
-            + `border-bottom: 1px solid ${textRgba(0.1)};`;
-        sourceLabel.style = `${fontCss}font-size: ${px(SOURCE_FONT_SIZE_PX)}px; color: ${textColor};`;
-        sourceLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+        mainLayout.style = `padding: ${padding}px; spacing: ${Math.round(4 * scale)}px;`;
 
-        contentArea.style = `padding: ${px(CONTENT_PADDING_PX)}px;`;
-        articleTitle.style = `${fontCss}font-size: ${px(TITLE_DISPLAY_FONT_SIZE_PX)}px; font-weight: 700; color: ${textColor};`;
-        articleSnippet.style = `${fontCss}font-size: ${px(SNIPPET_DISPLAY_FONT_SIZE_PX)}px;`
-            + `color: ${textColor}; opacity: ${SECONDARY_OPACITY};`;
-        articleSnippet.clutter_text.line_wrap = true;
-        articleSnippet.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
+        headerBox.style = `margin-bottom: ${Math.round(4 * scale)}px;`;
+        sourceLabel.style = `${fontCss}color: ${textColor}; font-size: ${titleFontSize}px; font-weight: bold; letter-spacing: 0.5px; opacity: 0.9;`;
 
-        footerBar.style = `padding: ${px(FOOTER_PADDING_V_PX)}px ${px(TITLEBAR_PADDING_H_PX)}px;`
-            + `border-top: 1px solid ${textRgba(0.1)};`;
-        timeLabel.style = `${fontCss}font-size: ${px(FOOTER_FONT_SIZE_PX)}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY};`;
-        dotsRow.style = `spacing: ${px(4)}px;`;
+        bodyBox.style = `spacing: ${Math.round(6 * scale)}px; padding-right: ${Math.round(4 * scale)}px;`;
+        
+        // Félkövér cím, arányos méret
+        articleTitle.style = `${fontCss}color: ${textColor}; font-size: ${articleTitleSize}px; font-weight: bold; line-height: 1.25;`;
+        // Normál bekezdés szöveg
+        articleSnippet.style = `${fontCss}color: ${textColor}; font-size: ${snippetSize}px; line-height: 1.35; opacity: 0.88;`;
 
+        footerBox.style = `margin-top: ${Math.round(3 * scale)}px;`;
+        timeLabel.style = `${fontCss}color: ${textColor}; font-size: ${footerFontSize}px; opacity: 0.45;`;
+
+        updateActiveDot();
         applyArticle();
     }
 

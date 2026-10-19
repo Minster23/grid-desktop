@@ -113,6 +113,36 @@ export function buildAppearancePage(settings) {
         title: 'Desktop Grid Layout',
         description: 'Configure desktop grid layout visibility.',
     });
+
+    const CELL_SIZES = [
+        { label: 'Compact (30 px)', size: 30 },
+        { label: 'Default (34 px)', size: 34 },
+        { label: 'Large (42 px)', size: 42 },
+        { label: 'Extra Large / HiDPI (50 px)', size: 50 },
+    ];
+
+    const cellSizeModel = new Gtk.StringList();
+    CELL_SIZES.forEach(opt => cellSizeModel.append(opt.label));
+
+    const currentCellSize = settings.get_int('grid-cell-size') || 34;
+    const matchedCellIdx = CELL_SIZES.findIndex(opt => opt.size === currentCellSize);
+
+    const cellSizeRow = new Adw.ComboRow({
+        title: 'Grid Cell Size',
+        subtitle: 'Scales widgets and their text proportionally across the grid.',
+        model: cellSizeModel,
+        selected: matchedCellIdx !== -1 ? matchedCellIdx : 1,
+    });
+    cellSizeRow.set_size_request(-1, 50);
+
+    cellSizeRow.connect('notify::selected', () => {
+        const selectedOpt = CELL_SIZES[cellSizeRow.get_selected()];
+        if (selectedOpt) {
+            settings.set_int('grid-cell-size', selectedOpt.size);
+        }
+    });
+    gridGroup.add(cellSizeRow);
+    
     gridGroup.add(createSwitchRow('Visualize Grid Overlay', 'Show grid lines on the desktop for easier widget alignment.', settings, 'show-grid').row);
     page.add(gridGroup);
 

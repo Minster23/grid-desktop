@@ -9,10 +9,15 @@ import {
     isDarkBackgroundColor,
     resolveWidgetBackgroundColor,
 } from '../../utils/widgetUtils.js';
-import { createWidgetContainer, registerWidgetCleanup } from '../../shell/widgetUIUtils.js';
+import { 
+    createWidgetContainer, 
+    registerWidgetCleanup, 
+    attachResponsiveScaler 
+} from '../../shell/widgetUIUtils.js';
+import { isActorDestroyed } from '../../utils/actorLifecycle.js';
 
-const BASE_CONTAINER_WIDTH_PX = 240;
-const BASE_CONTAINER_HEIGHT_PX = 200;
+const BASE_CONTAINER_WIDTH_PX = 220;
+const BASE_CONTAINER_HEIGHT_PX = 220;
 const BORDER_ALPHA = 0.14;
 const CARD_BG_DARK_ALPHA = 0.05;
 const CARD_BG_LIGHT_ALPHA = 0.04;
@@ -56,62 +61,68 @@ export function createBatteryStatusNode(config, width, height, xPosition, yPosit
     const container = createWidgetContainer(config, width, height, xPosition, yPosition);
     container.style += ` border: 1px solid ${cssColorToRgba(textColor, BORDER_ALPHA)};`;
 
-    const scale = Math.max(0.65, Math.min(width / BASE_CONTAINER_WIDTH_PX, height / BASE_CONTAINER_HEIGHT_PX));
-    
-    // Kisebb betűk és kártyaméretek kis nézetnél:
-    const cardPadding = Math.max(4, Math.round(6 * scale));
-    const cardRadius = Math.max(6, Math.round(10 * scale));
-    const titleFontSize = Math.max(11, Math.round(13 * scale));
-    const deviceFontSize = Math.max(10, Math.round(12 * scale));
-    const percentFontSize = Math.max(11, Math.round(13 * scale));
-    const subFontSize = Math.max(9, Math.round(10 * scale));
-    const iconSize = Math.max(16, Math.round(20 * scale));
-    const miniIconSize = Math.max(12, Math.round(14 * scale));
+    let scale = Math.max(0.65, Math.min(width / BASE_CONTAINER_WIDTH_PX, height / BASE_CONTAINER_HEIGHT_PX));
+    let lastDevicesData = [];
+    let isDisposed = false;
 
     const isDarkSurface = isDarkBackgroundColor(resolveWidgetBackgroundColor(config));
-    const cardBg = cssColorToRgba(textColor, isDarkSurface ? CARD_BG_DARK_ALPHA : CARD_BG_LIGHT_ALPHA);
+    const cardBgAlpha = isDarkSurface ? CARD_BG_DARK_ALPHA : CARD_BG_LIGHT_ALPHA;
     const cardBorderAlpha = isDarkSurface ? CARD_BORDER_DARK_ALPHA : CARD_BORDER_LIGHT_ALPHA;
-    const itemCardStyle = `background-color: ${cardBg}; border: 1px solid ${cssColorToRgba(textColor, cardBorderAlpha)}; border-radius: ${cardRadius}px; padding: ${cardPadding}px;`;
 
     const contentBox = new St.BoxLayout({
         orientation: Clutter.Orientation.VERTICAL,
         x_expand: true,
         y_expand: true,
-        style: `padding: ${Math.max(6, Math.round(8 * scale))}px; spacing: ${Math.max(4, Math.round(6 * scale))}px;`,
     });
+    container.add_child(contentBox);
 
+    // Fejléc
     const headerBox = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
         x_expand: true,
-        style: `margin-bottom: ${Math.round(4 * scale)}px;`,
     });
     const headerIcon = new St.Icon({
         icon_name: 'battery-level-100-charged-symbolic',
-        icon_size: Math.round(16 * scale),
         style: `color: ${textColor}; margin-right: 6px;`,
         y_align: Clutter.ActorAlign.CENTER,
     });
     const headerLabel = new St.Label({
         text: 'Battery Status',
-        style: `${fontCss}color: ${textColor}; font-size: ${titleFontSize}px; font-weight: bold; opacity: 0.9;`,
         y_align: Clutter.ActorAlign.CENTER,
     });
     headerBox.add_child(headerIcon);
     headerBox.add_child(headerLabel);
     contentBox.add_child(headerBox);
 
+    // Görgető konténer
+    const scrollView = new St.ScrollView({
+        hscrollbar_policy: St.PolicyType.NEVER,
+        vscrollbar_policy: St.PolicyType.AUTOMATIC,
+        overlay_scrollbars: false,
+        x_expand: true,
+        y_expand: true,
+    });
+    contentBox.add_child(scrollView);
+
     const listContainer = new St.BoxLayout({
         orientation: Clutter.Orientation.VERTICAL,
         x_expand: true,
-        y_expand: true,
-        style: `spacing: ${Math.round(6 * scale)}px;`,
     });
-    contentBox.add_child(listContainer);
-    container.add_child(contentBox);
-
-    let isDisposed = false;
+    scrollView.set_child(listContainer);
 
     const renderDeviceRow = (data) => {
+        const cardPadding = Math.max(4, Math.round(6 * scale));
+        const cardRadius = Math.max(6, Math.round(10 * scale));
+        const deviceFontSize = Math.max(10, Math.round(12 * scale));
+        const percentFontSize = Math.max(11, Math.round(13 * scale));
+        const subFontSize = Math.max(8, Math.round(9.5 * scale));
+        const iconSize = Math.max(15, Math.round(18 * scale));
+        const miniIconSize = Math.max(11, Math.round(13 * scale));
+
+        const cardBg = cssColorToRgba(textColor, cardBgAlpha);
+        const cardBorder = cssColorToRgba(textColor, cardBorderAlpha);
+        const itemCardStyle = `background-color: ${cardBg}; border: 1px solid ${cardBorder}; border-radius: ${cardRadius}px; padding: ${cardPadding}px;`;
+
         const row = new St.BoxLayout({
             orientation: Clutter.Orientation.HORIZONTAL,
             x_expand: true,
@@ -168,9 +179,31 @@ export function createBatteryStatusNode(config, width, height, xPosition, yPosit
         return row;
     };
 
-    const parseAndRender = (output) => {
-        if (isDisposed) return;
+    const renderList = () => {
+        if (isDisposed || isActorDestroyed(container)) return;
         listContainer.destroy_all_children();
+
+        const deviceFontSize = Math.max(10, Math.round(12 * scale));
+        listContainer.style = `spacing: ${Math.round(5 * scale)}px;`;
+
+        if (lastDevicesData.length === 0) {
+            const emptyLabel = new St.Label({
+                text: 'No battery devices detected',
+                style: `${fontCss}color: ${textColor}; font-size: ${deviceFontSize}px; opacity: ${LABEL_OPACITY};`,
+                y_align: Clutter.ActorAlign.CENTER,
+                x_align: Clutter.ActorAlign.CENTER,
+                x_expand: true,
+                y_expand: true,
+            });
+            listContainer.add_child(emptyLabel);
+            return;
+        }
+
+        lastDevicesData.forEach(d => listContainer.add_child(renderDeviceRow(d)));
+    };
+
+    const parseAndRender = (output) => {
+        if (isDisposed || isActorDestroyed(container)) return;
 
         const devices = [];
         const blocks = output.split(/Device:\s+/).filter(Boolean);
@@ -183,7 +216,6 @@ export function createBatteryStatusNode(config, width, height, xPosition, yPosit
             const percentageMatch = block.match(/percentage:\s+([0-9]+)%/i);
             const stateMatch = block.match(/state:\s+([a-zA-Z-]+)/i);
 
-            // Csak a percentage megléte kötelező!
             if (!percentageMatch) continue;
 
             const percentage = parseInt(percentageMatch[1], 10);
@@ -214,21 +246,8 @@ export function createBatteryStatusNode(config, width, height, xPosition, yPosit
         }
 
         devices.sort((a, b) => (a.isPc ? -1 : 1));
-
-        if (devices.length === 0) {
-            const emptyLabel = new St.Label({
-                text: 'No battery devices detected',
-                style: `${fontCss}color: ${textColor}; font-size: ${deviceFontSize}px; opacity: ${LABEL_OPACITY};`,
-                y_align: Clutter.ActorAlign.CENTER,
-                x_align: Clutter.ActorAlign.CENTER,
-                x_expand: true,
-                y_expand: true,
-            });
-            listContainer.add_child(emptyLabel);
-            return;
-        }
-
-        devices.forEach(d => listContainer.add_child(renderDeviceRow(d)));
+        lastDevicesData = devices;
+        renderList();
     };
 
     const refreshData = () => {
@@ -242,19 +261,33 @@ export function createBatteryStatusNode(config, width, height, xPosition, yPosit
                 try {
                     const [, stdout] = p.communicate_utf8_finish(res);
                     if (stdout) parseAndRender(stdout);
-                } catch (e) {
-                    // Ignore
-                }
+                } catch (e) {}
             });
-        } catch (err) {
-            // Ignore
-        }
+        } catch (err) {}
     };
 
-    // Első frissítés
+    function applyScale(newScale) {
+        scale = newScale;
+        const titleFontSize = Math.max(10, Math.round(12 * scale));
+
+        contentBox.style = `padding: ${Math.max(6, Math.round(8 * scale))}px; spacing: ${Math.max(4, Math.round(6 * scale))}px;`;
+        headerBox.style = `margin-bottom: ${Math.round(4 * scale)}px;`;
+        headerIcon.icon_size = Math.round(15 * scale);
+        headerIcon.style = `color: ${textColor}; margin-right: 6px;`;
+        headerLabel.style = `${fontCss}color: ${textColor}; font-size: ${titleFontSize}px; font-weight: bold; opacity: 0.9;`;
+
+        renderList();
+    }
+
+    applyScale(scale);
+
+    attachResponsiveScaler(container, BASE_CONTAINER_WIDTH_PX, BASE_CONTAINER_HEIGHT_PX, (_ratio, w, h) => {
+        if (isActorDestroyed(container)) return;
+        applyScale(Math.max(0.65, Math.min(w / BASE_CONTAINER_WIDTH_PX, h / BASE_CONTAINER_HEIGHT_PX)));
+    });
+
     refreshData();
 
-    // 10 másodpercenként csendes frissítés a háttérben
     const timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 10, () => {
         if (isDisposed) return GLib.SOURCE_REMOVE;
         refreshData();

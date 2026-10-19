@@ -244,6 +244,7 @@ export const DesktopGrid = GObject.registerClass(
             connectSetting('weather-use-fahrenheit', () => this._rebuildGrid());
             connectSetting('weather-dynamic-color', () => this._rebuildGrid());
             connectSetting('weather-dynamic-image', () => this._rebuildGrid());
+            connectSetting('grid-cell-size', () => this._rebuildGrid());
             connectSetting('show-grid', () => this._toggleGridLines());
         }
 
@@ -287,7 +288,13 @@ export const DesktopGrid = GObject.registerClass(
                 ? this.height 
                 : (global.stage.height || DEFAULT_STAGE_HEIGHT);
 
-            const { cellSize, cellTotalWidth, cellTotalHeight, gridCols, gridRows } = calculateGridDimensions(currentW, currentH);
+            const customCellSize = this.settings.get_int('grid-cell-size') || 34;
+            const { cellSize, cellTotalWidth, cellTotalHeight, gridCols, gridRows } = calculateGridDimensions(
+                currentW, 
+                currentH, 
+                COLUMNS_COUNT, 
+                customCellSize
+            );
             return { gridCols, gridRows, cellSize, cellTotalWidth, cellTotalHeight };
         }
 

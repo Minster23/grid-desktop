@@ -1,6 +1,19 @@
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
-import { resolveWidgetForegroundColor, resolveExplicitFontFamily, cssColorToRgba, isDarkBackgroundColor, resolveWidgetBackgroundColor, parseCssColor, CAIRO_OPERATOR_CLEAR, CAIRO_OPERATOR_OVER } from '../../utils/widgetUtils.js';
+import { 
+    resolveWidgetForegroundColor, 
+    resolveExplicitFontFamily, 
+    cssColorToRgba, 
+    isDarkBackgroundColor, 
+    resolveWidgetBackgroundColor, 
+    parseCssColor, 
+    CAIRO_OPERATOR_CLEAR, 
+    CAIRO_OPERATOR_OVER 
+} from '../../utils/widgetUtils.js';
+import { attachResponsiveScaler } from '../../shell/widgetUIUtils.js';
+
+const BASE_CARD_WIDTH = 110;
+const BASE_CARD_HEIGHT = 110;
 
 const BORDER_ALPHA = 0.14;
 const BADGE_BG_ALPHA = 0.12;
@@ -50,7 +63,6 @@ export function buildCardsLayout(layout, widgetData, extensionPath) {
     const textColor = resolveWidgetForegroundColor(widgetData);
     const accentHex = widgetData.globalAccentColor || '#3584e4';
 
-    // Finom 1px-es Adwaita keret, mint a System Info-nál:
     layout.style += ` border: 1px solid ${cssColorToRgba(textColor, BORDER_ALPHA)}; border-radius: 12px;`;
 
     let iconName = 'weather-clear-symbolic';
@@ -101,6 +113,7 @@ export function buildCardsLayout(layout, widgetData, extensionPath) {
     let valLabel;
     let typeLabel;
     let chartArea = null;
+    let chartCard = null;
     let samples = [];
 
     if (!showChart) {
@@ -165,7 +178,7 @@ export function buildCardsLayout(layout, widgetData, extensionPath) {
         const cardBg = cssColorToRgba(textColor, isDarkSurface ? CARD_BG_DARK_ALPHA : CARD_BG_LIGHT_ALPHA);
         const cardBorderAlpha = isDarkSurface ? CARD_BORDER_DARK_ALPHA : CARD_BORDER_LIGHT_ALPHA;
 
-        const chartCard = new St.BoxLayout({
+        chartCard = new St.BoxLayout({
             orientation: Clutter.Orientation.VERTICAL,
             x_expand: true,
             y_expand: true,
@@ -189,6 +202,13 @@ export function buildCardsLayout(layout, widgetData, extensionPath) {
         chartCard.add_child(chartArea);
         layout.add_child(chartCard);
     }
+
+    uiElements.valLabel = valLabel;
+    uiElements.typeLabel = typeLabel;
+    uiElements.iconBadge = iconBadge;
+    uiElements.topIcon = topIcon;
+    uiElements.chartCard = chartCard;
+    uiElements.showChart = showChart;
 
     uiElements.updateCards = (json, useFahrenheit = false) => {
         const cur = json.current;
@@ -221,7 +241,6 @@ export function buildCardsLayout(layout, widgetData, extensionPath) {
             valLabel.text = `${cur.precipitation} mm`;
         }
 
-        // A saját metrika trendjének kirajzolása:
         if (showChart && chartArea && json.hourly_trends) {
             const rawSamples = json.hourly_trends[metric] || [];
             
@@ -229,7 +248,6 @@ export function buildCardsLayout(layout, widgetData, extensionPath) {
                 const min = Math.min(...rawSamples);
                 const max = Math.max(...rawSamples);
                 const span = max - min || 1;
-                // Skálázás 0.0 és 1.0 közé:
                 samples = rawSamples.map(v => (v - min) / span);
                 chartArea.queue_repaint();
             }
@@ -240,5 +258,47 @@ export function buildCardsLayout(layout, widgetData, extensionPath) {
 }
 
 export function attachCardsScaler(widgetNode, uiElements, widgetData) {
-    // A layout automatikusan követi a cellaméretet
+    if (!uiElements || !uiElements.valLabel) return null;
+
+    const fontFamily = resolveExplicitFontFamily(widgetData);
+    const fontCss = fontFamily ? `font-family: ${fontFamily}; ` : '';
+    const textColor = resolveWidgetForegroundColor(widgetData);
+    const isDarkSurface = isDarkBackgroundColor(resolveWidgetBackgroundColor(widgetData));
+    const badgeBg = cssColorToRgba(textColor, BADGE_BG_ALPHA);
+    const cardBg = cssColorToRgba(textColor, isDarkSurface ? CARD_BG_DARK_ALPHA : CARD_BG_LIGHT_ALPHA);
+    const cardBorderAlpha = isDarkSurface ? CARD_BORDER_DARK_ALPHA : CARD_BORDER_LIGHT_ALPHA;
+
+    return attachResponsiveScaler(widgetNode, BASE_CARD_WIDTH, BASE_CARD_HEIGHT, (scale) => {
+        if (!uiElements.valLabel) return;
+
+        const iconSize = Math.max(10, Math.round(15 * scale));
+        const badgeRadius = Math.max(4, Math.round(7 * scale));
+        const badgePadding = Math.max(3, Math.round(5 * scale));
+
+        uiElements.topIcon.icon_size = iconSize;
+        uiElements.iconBadge.style = `background-color: ${badgeBg}; border-radius: ${badgeRadius}px; padding: ${badgePadding}px;`;
+
+        if (!uiElements.showChart) {
+            // NORMÁL NÉZET SKÁLÁZÁSA
+            const valSize = Math.max(14, Math.round(22 * scale));
+            const typeSize = Math.max(9, Math.round(12 * scale));
+
+            uiElements.valLabel.style = `${fontCss}color: ${textColor}; font-size: ${valSize}px; font-weight: bold; line-height: 1.1;`;
+            uiElements.typeLabel.style = `${fontCss}color: ${textColor}; font-size: ${typeSize}px; opacity: ${SUB_LABEL_OPACITY}; font-weight: 500;`;
+        } else {
+            // CHART NÉZET SKÁLÁZÁSA
+            const valSize = Math.max(12, Math.round(18 * scale));
+            const typeSize = Math.max(8, Math.round(11 * scale));
+            const cardRadius = Math.max(6, Math.round(10 * scale));
+            const cardPad = Math.max(3, Math.round(6 * scale));
+            const cardMargin = Math.max(2, Math.round(4 * scale));
+
+            uiElements.valLabel.style = `${fontCss}color: ${textColor}; font-size: ${valSize}px; font-weight: bold; line-height: 1.0;`;
+            uiElements.typeLabel.style = `${fontCss}color: ${textColor}; font-size: ${typeSize}px; opacity: ${SUB_LABEL_OPACITY}; font-weight: 500;`;
+
+            if (uiElements.chartCard) {
+                uiElements.chartCard.style = `background-color: ${cardBg}; border: 1px solid ${cssColorToRgba(textColor, cardBorderAlpha)}; border-radius: ${cardRadius}px; padding: ${cardPad}px; margin-top: ${cardMargin}px;`;
+            }
+        }
+    });
 }

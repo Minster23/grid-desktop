@@ -1,30 +1,66 @@
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
-import { resolveWidgetForegroundColor, resolveExplicitFontFamily, cssColorToRgba, resolveUse24h, SECONDARY_OPACITY } from '../../utils/widgetUtils.js';
-import { attachResponsiveScaler, connectTimerCleanup, createWidgetContainer, formatTimeParts, startMinuteAlignedTimer } from '../../shell/widgetUIUtils.js';
+import Pango from 'gi://Pango';
+import { 
+    resolveWidgetForegroundColor, 
+    resolveExplicitFontFamily, 
+    cssColorToRgba, 
+    resolveUse24h, 
+    SECONDARY_OPACITY 
+} from '../../utils/widgetUtils.js';
+import { 
+    attachResponsiveScaler, 
+    connectTimerCleanup, 
+    createWidgetContainer, 
+    formatTimeParts, 
+    startMinuteAlignedTimer 
+} from '../../shell/widgetUIUtils.js';
 import { isActorDestroyed } from '../../utils/actorLifecycle.js';
 
-const BASE_CONTAINER_WIDTH = 260;
-const BASE_CONTAINER_HEIGHT = 240;
-const TOP_CITY_BASE_FONT_SIZE = 16;
-const TOP_TIME_BASE_FONT_SIZE = 40;
-const TOP_GMT_BASE_FONT_SIZE = 15;
-const SEC_CITY_BASE_FONT_SIZE = 14;
-const SEC_TIME_BASE_FONT_SIZE = 22;
-const SEC_GMT_BASE_FONT_SIZE = 13;
-const CONTAINER_PADDING_PX = 20;
+const REF_WIDTH = 220;
+const REF_HEIGHT = 220;
 const BORDER_ALPHA = 0.14;
-const TOP_AMPM_MARGIN_BOTTOM_PX = 6;
-const TOP_AMPM_MARGIN_LEFT_PX = 4;
-const SEC_AMPM_MARGIN_BOTTOM_PX = 3;
-const SEC_AMPM_MARGIN_LEFT_PX = 3;
 
 const DEFAULT_CITIES = [
     { name: 'London', timezone: 'Europe/London', country: 'GB', primary: true },
     { name: 'New York', timezone: 'America/New_York', country: 'US', primary: false },
     { name: 'Moscow', timezone: 'Europe/Moscow', country: 'RU', primary: false },
 ];
+
+const KNOWN_CODES = {
+    'london': 'LON',
+    'east london': 'LON',
+    'new york': 'NYC',
+    'east new york': 'NYC',
+    'los angeles': 'LAX',
+    'east los angeles': 'LAX',
+    'tokyo': 'TYO',
+    'paris': 'PAR',
+    'berlin': 'BER',
+    'budapest': 'BUD',
+    'moscow': 'MOW',
+    'sydney': 'SYD',
+    'beijing': 'PEK',
+    'hong kong': 'HKG',
+    'dubai': 'DXB',
+    'chicago': 'ORD',
+    'toronto': 'YYZ',
+    'san francisco': 'SFO',
+    'singapore': 'SIN',
+};
+
+function getCityShortCode(name) {
+    if (!name) return '---';
+    const clean = name.trim().toLowerCase();
+    if (KNOWN_CODES[clean]) return KNOWN_CODES[clean];
+
+    const words = name.trim().split(/\s+/);
+    if (words.length > 1) {
+        return words.map(w => w[0].toUpperCase()).join('').slice(0, 3);
+    }
+    return name.slice(0, 3).toUpperCase();
+}
 
 function getFormattedTimeAndGmt(timezoneId, is24h) {
     const tz = timezoneId
@@ -58,26 +94,17 @@ function getFormattedTimeAndGmt(timezoneId, is24h) {
 
 function buildWorldClockUI(layoutBox, fontCss, textColor, cities) {
     const primaryCity = cities[0] || DEFAULT_CITIES[0];
-    const leftSecondaryCity = cities[1] || DEFAULT_CITIES[1];
-    const rightSecondaryCity = cities[2] || DEFAULT_CITIES[2];
-
-    // Label style builder reused by the responsive scaler.
-    const labelStyle = (sizePx, { secondary = false, light = false, marginLeftPx = 0, alignRight = false } = {}) => {
-        let style = `${fontCss}font-size: ${Math.max(1, Math.round(sizePx))}px; color: inherit;`;
-        if (light) style += ' font-weight: 300;';
-        if (secondary) style += ` opacity: ${SECONDARY_OPACITY};`;
-        if (marginLeftPx > 0) style += ` margin-left: ${marginLeftPx}px;`;
-        if (alignRight) style += ' text-align: right;';
-        return style;
-    };
+    const sec1City = cities[1] || DEFAULT_CITIES[1];
+    const sec2City = cities[2] || DEFAULT_CITIES[2];
 
     const mainContainer = new St.BoxLayout({
         orientation: Clutter.Orientation.VERTICAL,
         x_expand: true,
         y_expand: true,
-        style: `padding: ${CONTAINER_PADDING_PX}px;`,
     });
+    layoutBox.add_child(mainContainer);
 
+    // ── 1. Felső sor (Főváros balra, nagy idő jobbra zárva) ──
     const topRow = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
         x_expand: true,
@@ -87,36 +114,27 @@ function buildWorldClockUI(layoutBox, fontCss, textColor, cities) {
     const topInfoBox = new St.BoxLayout({
         orientation: Clutter.Orientation.VERTICAL,
         x_expand: true,
+        x_align: Clutter.ActorAlign.START,
         y_align: Clutter.ActorAlign.CENTER,
     });
 
-    const topCityLabel = new St.Label({
-        text: primaryCity.name,
-        style: labelStyle(TOP_CITY_BASE_FONT_SIZE, { secondary: true }),
-    });
+    const topCityLabel = new St.Label({ text: primaryCity.name });
+    topCityLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
 
-    const topGmtLabel = new St.Label({
-        text: 'GMT +0',
-        style: labelStyle(TOP_GMT_BASE_FONT_SIZE, { secondary: true }),
-    });
+    const topGmtLabel = new St.Label({ text: 'GMT +0' });
 
     topInfoBox.add_child(topCityLabel);
     topInfoBox.add_child(topGmtLabel);
 
     const topTimeBox = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
+        x_align: Clutter.ActorAlign.END,
         y_align: Clutter.ActorAlign.CENTER,
     });
-    const topTimeLabel = new St.Label({
-        text: '00:00',
-        style: labelStyle(TOP_TIME_BASE_FONT_SIZE, { light: true }),
-    });
-    const topAmpmLabel = new St.Label({
-        text: '',
-        style: labelStyle(TOP_GMT_BASE_FONT_SIZE, { secondary: true, marginLeftPx: TOP_AMPM_MARGIN_LEFT_PX }),
-        y_align: Clutter.ActorAlign.END,
-        margin_bottom: TOP_AMPM_MARGIN_BOTTOM_PX,
-    });
+    const topTimeLabel = new St.Label({ text: '00:00' });
+    topTimeLabel.clutter_text.set_line_alignment(Pango.Alignment.RIGHT);
+
+    const topAmpmLabel = new St.Label({ text: '', y_align: Clutter.ActorAlign.END });
     topTimeBox.add_child(topTimeLabel);
     topTimeBox.add_child(topAmpmLabel);
 
@@ -130,135 +148,116 @@ function buildWorldClockUI(layoutBox, fontCss, textColor, cities) {
     });
     mainContainer.add_child(flexSpacer);
 
-    const bottomRow = new St.BoxLayout({
+    // ── 2. Másodlagos városok konténere ──
+    const secondaryBox = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
         x_expand: true,
-        y_align: Clutter.ActorAlign.END,
     });
 
-    const leftSecBox = new St.BoxLayout({
+    // 1. Másodlagos (Bal alsó)
+    const sec1Box = new St.BoxLayout({
         orientation: Clutter.Orientation.VERTICAL,
         x_expand: true,
-        x_align: Clutter.ActorAlign.START,
     });
-    const leftCityLabel = new St.Label({
-        text: leftSecondaryCity.name,
-        style: labelStyle(SEC_CITY_BASE_FONT_SIZE, { secondary: true }),
-    });
-    const leftTimeBox = new St.BoxLayout({
+    const sec1CityLabel = new St.Label({ text: sec1City.name });
+    sec1CityLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+
+    const sec1TimeBox = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
         y_align: Clutter.ActorAlign.CENTER,
     });
-    const leftTimeLabel = new St.Label({
-        text: '00:00',
-        style: labelStyle(SEC_TIME_BASE_FONT_SIZE),
-    });
-    const leftAmpmLabel = new St.Label({
-        text: '',
-        style: labelStyle(SEC_GMT_BASE_FONT_SIZE, { secondary: true, marginLeftPx: SEC_AMPM_MARGIN_LEFT_PX }),
-        y_align: Clutter.ActorAlign.END,
-        margin_bottom: SEC_AMPM_MARGIN_BOTTOM_PX,
-    });
-    leftTimeBox.add_child(leftTimeLabel);
-    leftTimeBox.add_child(leftAmpmLabel);
+    const sec1TimeLabel = new St.Label({ text: '00:00' });
+    const sec1AmpmLabel = new St.Label({ text: '', y_align: Clutter.ActorAlign.END });
+    sec1TimeBox.add_child(sec1TimeLabel);
+    sec1TimeBox.add_child(sec1AmpmLabel);
 
-    const leftGmtLabel = new St.Label({
-        text: 'GMT +0',
-        style: labelStyle(SEC_GMT_BASE_FONT_SIZE, { secondary: true }),
-    });
-    leftSecBox.add_child(leftCityLabel);
-    leftSecBox.add_child(leftTimeBox);
-    leftSecBox.add_child(leftGmtLabel);
+    const sec1GmtLabel = new St.Label({ text: 'GMT +0' });
+    sec1Box.add_child(sec1CityLabel);
+    sec1Box.add_child(sec1TimeBox);
+    sec1Box.add_child(sec1GmtLabel);
 
-    const rightSecBox = new St.BoxLayout({
+    // 2. Másodlagos (Jobb alsó)
+    const sec2Box = new St.BoxLayout({
         orientation: Clutter.Orientation.VERTICAL,
         x_expand: true,
-        x_align: Clutter.ActorAlign.END,
     });
-    const rightCityLabel = new St.Label({
-        text: rightSecondaryCity.name,
-        style: labelStyle(SEC_CITY_BASE_FONT_SIZE, { secondary: true, alignRight: true }),
-        x_align: Clutter.ActorAlign.END,
-    });
-    const rightTimeBox = new St.BoxLayout({
+    const sec2CityLabel = new St.Label({ text: sec2City.name });
+    sec2CityLabel.clutter_text.ellipsize = Pango.EllipsizeMode.END;
+
+    const sec2TimeBox = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
-        x_align: Clutter.ActorAlign.END,
         y_align: Clutter.ActorAlign.CENTER,
     });
-    const rightTimeLabel = new St.Label({
-        text: '00:00',
-        style: labelStyle(SEC_TIME_BASE_FONT_SIZE, { alignRight: true }),
-        x_align: Clutter.ActorAlign.END,
-    });
-    const rightAmpmLabel = new St.Label({
-        text: '',
-        style: labelStyle(SEC_GMT_BASE_FONT_SIZE, { secondary: true, marginLeftPx: SEC_AMPM_MARGIN_LEFT_PX, alignRight: true }),
-        x_align: Clutter.ActorAlign.END,
-        y_align: Clutter.ActorAlign.END,
-        margin_bottom: SEC_AMPM_MARGIN_BOTTOM_PX,
-    });
-    rightTimeBox.add_child(rightTimeLabel);
-    rightTimeBox.add_child(rightAmpmLabel);
+    const sec2TimeLabel = new St.Label({ text: '00:00' });
+    const sec2AmpmLabel = new St.Label({ text: '', y_align: Clutter.ActorAlign.END });
+    sec2TimeBox.add_child(sec2TimeLabel);
+    sec2TimeBox.add_child(sec2AmpmLabel);
 
-    const rightGmtLabel = new St.Label({
-        text: 'GMT +0',
-        style: labelStyle(SEC_GMT_BASE_FONT_SIZE, { secondary: true, alignRight: true }),
-        x_align: Clutter.ActorAlign.END,
-    });
-    rightSecBox.add_child(rightCityLabel);
-    rightSecBox.add_child(rightTimeBox);
-    rightSecBox.add_child(rightGmtLabel);
+    const sec2GmtLabel = new St.Label({ text: 'GMT +0' });
+    sec2Box.add_child(sec2CityLabel);
+    sec2Box.add_child(sec2TimeBox);
+    sec2Box.add_child(sec2GmtLabel);
 
-    bottomRow.add_child(leftSecBox);
-    bottomRow.add_child(rightSecBox);
-    mainContainer.add_child(bottomRow);
-
-    layoutBox.add_child(mainContainer);
+    secondaryBox.add_child(sec1Box);
+    secondaryBox.add_child(sec2Box);
+    mainContainer.add_child(secondaryBox);
 
     return {
-        labelStyle,
+        mainContainer,
+        topRow,
         topCityLabel,
         topTimeLabel,
         topAmpmLabel,
         topGmtLabel,
-        leftCityLabel,
-        leftTimeLabel,
-        leftAmpmLabel,
-        leftGmtLabel,
-        rightCityLabel,
-        rightTimeLabel,
-        rightAmpmLabel,
-        rightGmtLabel,
+        secondaryBox,
+        sec1Box,
+        sec1CityLabel,
+        sec1TimeBox,
+        sec1TimeLabel,
+        sec1AmpmLabel,
+        sec1GmtLabel,
+        sec2Box,
+        sec2CityLabel,
+        sec2TimeBox,
+        sec2TimeLabel,
+        sec2AmpmLabel,
+        sec2GmtLabel,
         primaryCity,
-        leftSecondaryCity,
-        rightSecondaryCity,
+        sec1City,
+        sec2City,
     };
 }
 
-function updateWorldTimes(ui, is24h) {
+function updateWorldTimes(ui, is24h, isCompact) {
     if (!ui) return;
 
+    // Főváros
     const primaryData = getFormattedTimeAndGmt(ui.primaryCity.timezone, is24h);
+    ui.topCityLabel.set_text(isCompact ? getCityShortCode(ui.primaryCity.name) : ui.primaryCity.name);
     ui.topTimeLabel.set_text(primaryData.timeStr);
     ui.topAmpmLabel.set_text(primaryData.ampmStr);
     ui.topAmpmLabel.visible = (!is24h && primaryData.ampmStr !== '');
     ui.topGmtLabel.set_text(primaryData.gmtStr);
 
-    const leftData = getFormattedTimeAndGmt(ui.leftSecondaryCity.timezone, is24h);
-    ui.leftTimeLabel.set_text(leftData.timeStr);
-    ui.leftAmpmLabel.set_text(leftData.ampmStr);
-    ui.leftAmpmLabel.visible = (!is24h && leftData.ampmStr !== '');
-    ui.leftGmtLabel.set_text(leftData.gmtStr);
+    // 1. Másodlagos
+    const sec1Data = getFormattedTimeAndGmt(ui.sec1City.timezone, is24h);
+    ui.sec1CityLabel.set_text(isCompact ? getCityShortCode(ui.sec1City.name) : ui.sec1City.name);
+    ui.sec1TimeLabel.set_text(sec1Data.timeStr);
+    ui.sec1AmpmLabel.set_text(sec1Data.ampmStr);
+    ui.sec1AmpmLabel.visible = (!is24h && sec1Data.ampmStr !== '');
+    ui.sec1GmtLabel.set_text(sec1Data.gmtStr);
 
-    const rightData = getFormattedTimeAndGmt(ui.rightSecondaryCity.timezone, is24h);
-    ui.rightTimeLabel.set_text(rightData.timeStr);
-    ui.rightAmpmLabel.set_text(rightData.ampmStr);
-    ui.rightAmpmLabel.visible = (!is24h && rightData.ampmStr !== '');
-    ui.rightGmtLabel.set_text(rightData.gmtStr);
+    // 2. Másodlagos
+    const sec2Data = getFormattedTimeAndGmt(ui.sec2City.timezone, is24h);
+    ui.sec2CityLabel.set_text(isCompact ? getCityShortCode(ui.sec2City.name) : ui.sec2City.name);
+    ui.sec2TimeLabel.set_text(sec2Data.timeStr);
+    ui.sec2AmpmLabel.set_text(sec2Data.ampmStr);
+    ui.sec2AmpmLabel.visible = (!is24h && sec2Data.ampmStr !== '');
+    ui.sec2GmtLabel.set_text(sec2Data.gmtStr);
 }
 
 export function createWorldTimeNode(widgetData, width, height, xPosition, yPosition) {
-    const fontFamily = resolveExplicitFontFamily(widgetData);
+    const fontFamily = resolveExplicitFontFamily(widgetData) || 'Sans';
     const fontCss = fontFamily ? `font-family: ${fontFamily}; ` : '';
     const textColor = resolveWidgetForegroundColor(widgetData);
 
@@ -266,45 +265,109 @@ export function createWorldTimeNode(widgetData, width, height, xPosition, yPosit
     widgetNode.style += ` border: 1px solid ${cssColorToRgba(textColor, BORDER_ALPHA)};`;
 
     const cities = widgetData.cities || DEFAULT_CITIES;
-    // Keep a stable left/right mapping so the responsive scaler updates the same labels.
     const ui = buildWorldClockUI(widgetNode, fontCss, textColor, cities);
 
-    const state = {
-        timerId: null,
-    };
+    let isCompact = false;
+    const state = { timerId: null };
 
     const updateDisplay = () => {
         if (isActorDestroyed(widgetNode)) return GLib.SOURCE_REMOVE;
-        // Re-evaluate on every tick so toggling the 24h setting takes effect
-        // without needing to recreate the widget.
         const is24h = resolveUse24h(widgetData);
-        updateWorldTimes(ui, is24h);
+        updateWorldTimes(ui, is24h, isCompact);
         return GLib.SOURCE_CONTINUE;
     };
 
-    updateDisplay();
+    function applyScale(scale, curWidth) {
+        isCompact = (curWidth < 190 || scale < 0.82);
+
+        const pad = Math.max(8, Math.round(14 * scale));
+        ui.mainContainer.style = `padding: ${pad}px;`;
+
+        const topCitySize = Math.max(10, Math.round(14 * scale));
+        const topTimeSize = Math.max(22, Math.round(36 * scale));
+        const topGmtSize = Math.max(8, Math.round(11 * scale));
+
+        const secCitySize = Math.max(9, Math.round(12 * scale));
+        const secTimeSize = Math.max(14, Math.round(19 * scale));
+        const secGmtSize = Math.max(8, Math.round(10 * scale));
+
+        ui.topCityLabel.style = `${fontCss}font-size: ${topCitySize}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY}; font-weight: 500;`;
+        ui.topTimeLabel.style = `${fontCss}font-size: ${topTimeSize}px; color: ${textColor}; font-weight: 300; text-align: right;`;
+        ui.topAmpmLabel.style = `${fontCss}font-size: ${topGmtSize}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY}; margin-left: 3px; margin-bottom: 4px;`;
+        ui.topGmtLabel.style = `${fontCss}font-size: ${topGmtSize}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY};`;
+
+        if (isCompact) {
+            ui.secondaryBox.set_vertical(true);
+            ui.secondaryBox.style = `spacing: ${Math.round(4 * scale)}px; margin-top: 4px;`;
+
+            [ui.sec1Box, ui.sec2Box].forEach(b => {
+                b.set_vertical(false);
+                b.x_align = Clutter.ActorAlign.FILL;
+                b.x_expand = true;
+            });
+
+            ui.sec1GmtLabel.visible = false;
+            ui.sec2GmtLabel.visible = false;
+
+            // 1. Sor: balra kód, jobbra idő
+            ui.sec1CityLabel.x_align = Clutter.ActorAlign.START;
+            ui.sec1CityLabel.x_expand = true;
+            ui.sec1CityLabel.style = `${fontCss}font-size: ${secCitySize}px; color: ${textColor}; font-weight: bold; opacity: 0.85; text-align: left;`;
+            ui.sec1TimeBox.x_align = Clutter.ActorAlign.END;
+            ui.sec1TimeLabel.style = `${fontCss}font-size: ${secTimeSize}px; color: ${textColor}; font-weight: 400; text-align: right;`;
+            ui.sec1AmpmLabel.style = `${fontCss}font-size: ${secGmtSize}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY}; margin-left: 2px;`;
+
+            // 2. Sor: balra kód, jobbra idő (ugyanúgy START és FILL mint fent!)
+            ui.sec2CityLabel.x_align = Clutter.ActorAlign.START;
+            ui.sec2CityLabel.x_expand = true;
+            ui.sec2CityLabel.style = `${fontCss}font-size: ${secCitySize}px; color: ${textColor}; font-weight: bold; opacity: 0.85; text-align: left;`;
+            ui.sec2TimeBox.x_align = Clutter.ActorAlign.END;
+            ui.sec2TimeLabel.style = `${fontCss}font-size: ${secTimeSize}px; color: ${textColor}; font-weight: 400; text-align: right;`;
+            ui.sec2AmpmLabel.style = `${fontCss}font-size: ${secGmtSize}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY}; margin-left: 2px;`;
+
+        } else {
+            ui.secondaryBox.set_vertical(false);
+            ui.secondaryBox.style = '';
+
+            [ui.sec1Box, ui.sec2Box].forEach(b => {
+                b.set_vertical(true);
+            });
+
+            ui.sec1Box.x_align = Clutter.ActorAlign.START;
+            ui.sec2Box.x_align = Clutter.ActorAlign.END;
+
+            ui.sec1GmtLabel.visible = true;
+            ui.sec2GmtLabel.visible = true;
+
+            ui.sec1CityLabel.x_align = Clutter.ActorAlign.START;
+            ui.sec1CityLabel.x_expand = false;
+            ui.sec1CityLabel.style = `${fontCss}font-size: ${secCitySize}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY}; text-align: left;`;
+            ui.sec1TimeBox.x_align = Clutter.ActorAlign.START;
+            ui.sec1TimeLabel.style = `${fontCss}font-size: ${secTimeSize}px; color: ${textColor}; text-align: left;`;
+            ui.sec1AmpmLabel.style = `${fontCss}font-size: ${secGmtSize}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY}; margin-left: 3px;`;
+            ui.sec1GmtLabel.style = `${fontCss}font-size: ${secGmtSize}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY};`;
+
+            ui.sec2CityLabel.x_align = Clutter.ActorAlign.END;
+            ui.sec2CityLabel.x_expand = false;
+            ui.sec2CityLabel.style = `${fontCss}font-size: ${secCitySize}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY}; text-align: right;`;
+            ui.sec2TimeBox.x_align = Clutter.ActorAlign.END;
+            ui.sec2TimeLabel.style = `${fontCss}font-size: ${secTimeSize}px; color: ${textColor}; text-align: right;`;
+            ui.sec2AmpmLabel.style = `${fontCss}font-size: ${secGmtSize}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY}; margin-left: 3px; text-align: right;`;
+            ui.sec2GmtLabel.style = `${fontCss}font-size: ${secGmtSize}px; color: ${textColor}; opacity: ${SECONDARY_OPACITY}; text-align: right;`;
+        }
+
+        updateDisplay();
+    }
+
+    applyScale(Math.min(width / REF_WIDTH, height / REF_HEIGHT), width);
+
+    attachResponsiveScaler(widgetNode, REF_WIDTH, REF_HEIGHT, (_ratio, w, h) => {
+        if (isActorDestroyed(widgetNode)) return;
+        applyScale(Math.min(w / REF_WIDTH, h / REF_HEIGHT), w);
+    });
+
     startMinuteAlignedTimer(state, widgetNode, updateDisplay);
     connectTimerCleanup(widgetNode, state);
-
-    attachResponsiveScaler(widgetNode, BASE_CONTAINER_WIDTH, BASE_CONTAINER_HEIGHT, (scale) => {
-        if (isActorDestroyed(widgetNode)) return;
-
-        const scaled = (base) => base * scale;
-        ui.topCityLabel.style = ui.labelStyle(scaled(TOP_CITY_BASE_FONT_SIZE), { secondary: true });
-        ui.topTimeLabel.style = ui.labelStyle(scaled(TOP_TIME_BASE_FONT_SIZE), { light: true });
-        ui.topAmpmLabel.style = ui.labelStyle(scaled(TOP_GMT_BASE_FONT_SIZE), { secondary: true, marginLeftPx: TOP_AMPM_MARGIN_LEFT_PX });
-        ui.topGmtLabel.style = ui.labelStyle(scaled(TOP_GMT_BASE_FONT_SIZE), { secondary: true });
-
-        ui.leftCityLabel.style = ui.labelStyle(scaled(SEC_CITY_BASE_FONT_SIZE), { secondary: true });
-        ui.leftTimeLabel.style = ui.labelStyle(scaled(SEC_TIME_BASE_FONT_SIZE));
-        ui.leftAmpmLabel.style = ui.labelStyle(scaled(SEC_GMT_BASE_FONT_SIZE), { secondary: true, marginLeftPx: SEC_AMPM_MARGIN_LEFT_PX });
-        ui.leftGmtLabel.style = ui.labelStyle(scaled(SEC_GMT_BASE_FONT_SIZE), { secondary: true });
-
-        ui.rightCityLabel.style = ui.labelStyle(scaled(SEC_CITY_BASE_FONT_SIZE), { secondary: true, alignRight: true });
-        ui.rightTimeLabel.style = ui.labelStyle(scaled(SEC_TIME_BASE_FONT_SIZE), { alignRight: true });
-        ui.rightAmpmLabel.style = ui.labelStyle(scaled(SEC_GMT_BASE_FONT_SIZE), { secondary: true, marginLeftPx: SEC_AMPM_MARGIN_LEFT_PX, alignRight: true });
-        ui.rightGmtLabel.style = ui.labelStyle(scaled(SEC_GMT_BASE_FONT_SIZE), { secondary: true, alignRight: true });
-    });
 
     return widgetNode;
 }

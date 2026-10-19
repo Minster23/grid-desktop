@@ -14,7 +14,7 @@ const TIME_MARGIN_RIGHT_PX = 5;
 const AMPM_MARGIN_BOTTOM_PX = 4;
 const BORDER_ALPHA = 0.14;
 
-function buildTimeAndDateLabels({ is24h, timeFontSize, ampmFontSize, dateFontSize, fontCss, textColor }) {
+function buildTimeAndDateLabels({ timeFontSize, ampmFontSize, dateFontSize, fontCss, textColor }) {
     const timeRow = new St.BoxLayout({
         orientation: Clutter.Orientation.HORIZONTAL,
         y_align: Clutter.ActorAlign.END,
@@ -27,14 +27,12 @@ function buildTimeAndDateLabels({ is24h, timeFontSize, ampmFontSize, dateFontSiz
     });
     timeRow.add_child(timeLabel);
 
-    let ampmLabel = null;
-    if (!is24h) {
-        ampmLabel = new St.Label({
-            text: 'AM',
-            style: `${fontCss}color: ${textColor}; font-size: ${ampmFontSize}px; opacity: ${SECONDARY_OPACITY}; margin-bottom: ${AMPM_MARGIN_BOTTOM_PX}px;`
-        });
-        timeRow.add_child(ampmLabel);
-    }
+    // Az ampmLabel mindig létrejön, a láthatóságát a formátum vezérli dinamikusan
+    const ampmLabel = new St.Label({
+        text: '',
+        style: `${fontCss}color: ${textColor}; font-size: ${ampmFontSize}px; opacity: ${SECONDARY_OPACITY}; margin-bottom: ${AMPM_MARGIN_BOTTOM_PX}px;`
+    });
+    timeRow.add_child(ampmLabel);
 
     const dateLabel = new St.Label({
         text: 'Monday, Jan 1',
@@ -46,16 +44,21 @@ function buildTimeAndDateLabels({ is24h, timeFontSize, ampmFontSize, dateFontSiz
 }
 
 function updateTimeAndDate(elements, is24h) {
+    if (!elements || !elements.timeLabel) return;
     const now = GLib.DateTime.new_now_local();
     const { time, ampm } = formatTimeParts(now, is24h);
+    
     elements.timeLabel.set_text(time);
-    if (elements.ampmLabel)
-        elements.ampmLabel.set_text(ampm);
+    
+    if (elements.ampmLabel) {
+        elements.ampmLabel.set_text(ampm || '');
+        elements.ampmLabel.visible = (!is24h && ampm !== '');
+    }
+    
     elements.dateLabel.set_text(now.format('%A, %b %d'));
 }
 
 export function createDigitalTimeNode(widgetData, width, height, xPosition, yPosition) {
-    const is24h = resolveUse24h(widgetData);
     const fontFamily = resolveExplicitFontFamily(widgetData);
     const fontCss = fontFamily ? `font-family: ${fontFamily}; ` : '';
     const textColor = resolveWidgetForegroundColor(widgetData);
@@ -72,12 +75,13 @@ export function createDigitalTimeNode(widgetData, width, height, xPosition, yPos
     });
     widgetNode.add_child(textLayout);
 
+    let currentScale = Math.min(width / BASE_CONTAINER_WIDTH, height / BASE_CONTAINER_HEIGHT);
     let timeElements = null;
 
     const applyScale = (scale) => {
+        currentScale = scale;
         const scaled = (base) => Math.max(1, Math.round(base * scale));
         const nextElements = buildTimeAndDateLabels({
-            is24h,
             timeFontSize: scaled(BASE_TIME_FONT_SIZE),
             ampmFontSize: scaled(BASE_AMPM_FONT_SIZE),
             dateFontSize: scaled(BASE_DATE_FONT_SIZE),
@@ -97,6 +101,9 @@ export function createDigitalTimeNode(widgetData, width, height, xPosition, yPos
             textLayout.add_child(nextElements.dateLabel);
         }
         timeElements = nextElements;
+
+        // Mindig frissen kérdezzük le az aktuális beállítást:
+        const is24h = resolveUse24h(widgetData);
         updateTimeAndDate(timeElements, is24h);
     };
 
@@ -106,17 +113,34 @@ export function createDigitalTimeNode(widgetData, width, height, xPosition, yPos
 
     const updateDisplay = () => {
         if (isActorDestroyed(widgetNode)) return GLib.SOURCE_REMOVE;
+        // Dinamikus lekérdezés minden frissítéskor
+        const is24h = resolveUse24h(widgetData);
         updateTimeAndDate(timeElements, is24h);
         return GLib.SOURCE_CONTINUE;
     };
 
-    applyScale(Math.min(width / BASE_CONTAINER_WIDTH, height / BASE_CONTAINER_HEIGHT));
+    applyScale(currentScale);
     startMinuteAlignedTimer(state, widgetNode, updateDisplay);
     connectTimerCleanup(widgetNode, state);
+
     attachResponsiveScaler(widgetNode, BASE_CONTAINER_WIDTH, BASE_CONTAINER_HEIGHT, (scale) => {
         if (isActorDestroyed(widgetNode)) return;
         applyScale(scale);
     });
+
+    // Beállításváltás azonnali lekövetése (ha a settings objektum elérhető)
+    if (widgetData.settings && typeof widgetData.settings.connect === 'function') {
+        const changeId = widgetData.settings.connect('changed', () => {
+            if (!isActorDestroyed(widgetNode)) {
+                updateDisplay();
+            }
+        });
+        widgetNode.connect('destroy', () => {
+            try {
+                widgetData.settings.disconnect(changeId);
+            } catch (e) {}
+        });
+    }
 
     return widgetNode;
 }

@@ -75,6 +75,10 @@ export default class GridgetsExtension extends Extension {
             });
         }
 
+        this._settingSignalIds.push(
+            this._settings.connect('changed::grid-cell-size', () => this._rebuildGrids())
+        );
+
         enableDashContextMenu();
     }
 
