@@ -1,6 +1,7 @@
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
+import Meta from 'gi://Meta';
 import Pango from 'gi://Pango';
 import { 
     SECONDARY_OPACITY, 
@@ -13,15 +14,11 @@ import {
 } from '../utils/widgetUtils.js';
 import {
     createWidgetContainer,
-    connectTimerCleanup,
-    startPollingTimer,
     attachResponsiveScaler,
     registerWidgetCleanup
 } from '../shell/widgetUIUtils.js';
-import { BUTTON_PRIMARY } from '../desktopGrid/constants.js';
 import { isActorDestroyed } from '../utils/actorLifecycle.js';
 
-const TICK_INTERVAL_MS = 1000;
 const MAX_HISTORY_LENGTH = 25;
 const PREVIEW_TEXT_MAX_LENGTH = 45;
 const PREVIEW_TEXT_MIN_LENGTH = 22;
@@ -96,20 +93,11 @@ export function createClipboardNode(config, width, height, xPosition, yPosition)
 
     const state = {
         clipboardHistory: [],
-        timerId: null,
+        ownerChangedId: null,
     };
 
-    loadJsonFromFileAsync(clipboardFilePath, (savedData, loadError) => {
-        if (isActorDestroyed(container)) return;
-        if (savedData && Array.isArray(savedData.history)) {
-            state.clipboardHistory = savedData.history;
-            renderClipboardItems();
-        } else if (!loadError) {
-            saveJsonToFile(clipboardFilePath, { history: state.clipboardHistory });
-        }
-    });
-
     const systemClipboard = St.Clipboard.get_default();
+    const selection = global.display.get_selection();
 
     const renderClipboardItems = () => {
         if (isActorDestroyed(container)) return;
@@ -180,7 +168,7 @@ export function createClipboardNode(config, width, height, xPosition, yPosition)
         });
     };
 
-    const pollSystemClipboard = () => {
+    const updateClipboardIfChanged = () => {
         if (isActorDestroyed(container)) return;
         systemClipboard.get_text(St.ClipboardType.CLIPBOARD, (_clipboard, newClipboardText) => {
             if (isActorDestroyed(container) || !newClipboardText || newClipboardText.trim() === '') return;
@@ -205,6 +193,32 @@ export function createClipboardNode(config, width, height, xPosition, yPosition)
         });
     };
 
+    loadJsonFromFileAsync(clipboardFilePath, (savedData, loadError) => {
+        if (isActorDestroyed(container)) return;
+        if (savedData && Array.isArray(savedData.history)) {
+            state.clipboardHistory = savedData.history;
+            renderClipboardItems();
+        } else if (!loadError) {
+            saveJsonToFile(clipboardFilePath, { history: state.clipboardHistory });
+        }
+        // Induláskor lekérjük az aktuális értéket egyszer
+        updateClipboardIfChanged();
+    });
+
+    // Eseményvezérelt figyelés: csak akkor fut le, ha valóban megváltozik a vágólap
+    state.ownerChangedId = selection.connect('owner-changed', (_selection, selectionType) => {
+        if (selectionType === Meta.SelectionType.SELECTION_CLIPBOARD) {
+            updateClipboardIfChanged();
+        }
+    });
+
+    registerWidgetCleanup(container, () => {
+        if (state.ownerChangedId) {
+            selection.disconnect(state.ownerChangedId);
+            state.ownerChangedId = null;
+        }
+    });
+
     function applyScale(scale) {
         currentScale = scale;
         const padding = Math.max(8, Math.round(12 * scale));
@@ -225,9 +239,6 @@ export function createClipboardNode(config, width, height, xPosition, yPosition)
         if (isActorDestroyed(container)) return;
         applyScale(Math.min(w / REF_WIDTH_PX, h / REF_HEIGHT_PX));
     });
-
-    startPollingTimer(pollSystemClipboard, TICK_INTERVAL_MS, state);
-    connectTimerCleanup(container, state);
 
     return container;
 }
