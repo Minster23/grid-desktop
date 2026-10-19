@@ -69,9 +69,23 @@ class MailMonitorEngine {
         // Python szkript ami végignézi az evolution helyi mail gyorsítótárát
         // Minden Debian/Ubuntu rendszeren alapból fut, nem kell semmit telepíteni
         const pythonScript = `
-import os, sqlite3, json, glob
+import os, sqlite3, json, glob, configparser
 
 base_dir = os.path.expanduser('~/.cache/evolution/mail')
+sources_dir = os.path.expanduser('~/.config/evolution/sources')
+
+display_names = {}
+for sf in glob.glob(os.path.join(sources_dir, '*.source')):
+    uid = os.path.splitext(os.path.basename(sf))[0]
+    config = configparser.ConfigParser()
+    try:
+        config.read(sf, encoding='utf-8')
+        # [Data Source] szekció alatt van a DisplayName
+        if config.has_section('Data Source') and 'DisplayName' in config['Data Source']:
+            display_names[uid] = config['Data Source']['DisplayName']
+    except Exception:
+        pass
+
 results = []
 total_unread = 0
 
@@ -79,13 +93,18 @@ for db_path in glob.glob(os.path.join(base_dir, '*/folders.db')):
     try:
         conn = sqlite3.connect(db_path)
         c = conn.cursor()
-        # Pontosan az unread_count oszlopot kérdezzük le az INBOX mappákra
         c.execute("SELECT folder_name, unread_count FROM folders WHERE folder_name = 'INBOX' OR folder_name LIKE 'INBOX/%'")
         rows = c.fetchall()
         acc_unread = sum(r[1] for r in rows if r[1] and r[1] > 0)
         
         acc_id = os.path.basename(os.path.dirname(db_path))
-        results.append({'id': acc_id, 'unread': acc_unread})
+        account_name = display_names.get(acc_id, acc_id[:8])
+
+        results.append({
+            'id': acc_id,
+            'name': account_name,
+            'unread': acc_unread
+        })
         total_unread += acc_unread
         conn.close()
     except Exception:
@@ -93,7 +112,6 @@ for db_path in glob.glob(os.path.join(base_dir, '*/folders.db')):
 
 print(json.dumps({'total': total_unread, 'accounts': results}))
 `;
-
         let proc;
         try {
             proc = new Gio.Subprocess({
