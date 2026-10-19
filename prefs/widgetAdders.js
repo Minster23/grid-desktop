@@ -303,3 +303,7 @@ export function addWatermindWidget(settings, hourlyTargetMl = 250, intervalMinut
 export function addBluetoothDevicesWidget(settings, width = 4, height = 4) {
     addWidget(settings, { id: nextWidgetId(settings, 'bluetoothDevices'), type: 'bluetoothDevices' }, width, height);
 }
+
+export function addMailGoaWidget(settings, width = 2, height = 2) {
+    addWidget(settings, { id: nextWidgetId(settings, 'mailGoa'), type: 'mailGoa' }, width, height);
+}

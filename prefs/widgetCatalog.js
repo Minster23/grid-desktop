@@ -352,6 +352,13 @@ export const STORE_WIDGETS = Object.freeze({
         thumbnail: 'system-utils/bluetooth.svg',
         fallbackIconName: 'bluetooth-active-symbolic',
     },
+    mailGoa: {
+        title: 'Unread Mail ',
+        description: 'List unread mail.',
+        gridSize: '2x2',
+        thumbnail: 'system-utils/mailGoa.svg',
+        fallbackIconName: 'mail-unread-symbolic',
+    },
 });
 
 export const STORE_CATEGORIES = Object.freeze({
@@ -390,7 +397,8 @@ export const STORE_CATEGORIES = Object.freeze({
         'powerToggles',
         'calendarTasks',
         'watermind',
-        'bluetoothDevices'
+        'bluetoothDevices',
+        'mailGoa'
     ],
 });
 
@@ -516,6 +524,8 @@ function getStoreWidgetKey(widget) {
             return 'watermind';
         case 'bluetoothDevices':
             return 'bluetoothDevices';
+        case 'mailGoa':
+            return 'mailGoa'
         default:
             return null;
     }

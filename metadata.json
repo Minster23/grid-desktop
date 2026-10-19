@@ -3,8 +3,6 @@
   "name": "Grid Desktop",
   "description": "Grid-based desktop widgets and icon management for GNOME.\n* Desktop icons support: place, organize, and manage files and launchers on the desktop.\n* Desktop widgets: clock, weather, notes, music, system monitor, clipboard, and image widgets on an aligned grid.\n* Local clipboard history with quick access.\n* Drag, resize, and customise each widget independently.",
   "shell-version": [
-    "46",
-    "47",
     "48",
     "49",
     "50",

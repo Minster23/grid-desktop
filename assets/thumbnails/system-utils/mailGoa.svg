@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+  <defs>
+    <!-- Widget kártya háttérszín -->
+    <linearGradient id="cardBg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2d2633" />
+      <stop offset="100%" stop-color="#241e2a" />
+    </linearGradient>
+  </defs>
+
+  <!-- Widget kártya alap (2x2 arány, lekerekített sarkok, finom szegély) -->
+  <rect x="24" y="24" width="112" height="112" rx="24" ry="24" fill="url(#cardBg)" stroke="#ffffff" stroke-opacity="0.14" stroke-width="1" />
+
+  <!-- Jobb felső sarok: áttetsző badge -->
+  <rect x="94" y="38" width="28" height="28" rx="8" ry="8" fill="#ffffff" fill-opacity="0.12" />
+  
+  <!-- Boríték symbolic ikon a badge-en belül -->
+  <g transform="translate(100, 45)" stroke="#ffffff" stroke-opacity="0.9" fill="none" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="0.5" y="0.5" width="15" height="11" rx="1.5" />
+    <path d="M 1 2 L 8 7 L 15 2" />
+  </g>
+
+  <!-- Bal alsó rész: számláló és MAIL felirat -->
+  <text x="40" y="104" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="bold" letter-spacing="-0.5">4</text>
+  <text x="40" y="122" fill="#ffffff" fill-opacity="0.65" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" letter-spacing="0.5">MAIL</text>
+</svg>

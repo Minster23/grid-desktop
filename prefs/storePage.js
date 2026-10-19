@@ -40,7 +40,8 @@ import {
     addPowerTogglesWidget,
     addWorldAnalogWidget,
     addCalendarTasksWidget,
-    addBluetoothDevicesWidget
+    addBluetoothDevicesWidget,
+    addMailGoaWidget
 } from './widgetAdders.js';
 
 import {
@@ -251,6 +252,7 @@ export function buildStorePage(window, settings, extensionPath) {
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.quickNotes, () => addNotesWidget(settings, 4, 4)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.clipboardHistory, () => addClipboardWidget(settings, 4, 4)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.appLauncher, () => openAddAppLauncherDialog(window, settings)),
+        createDesktopWidgetCard(extensionPath, STORE_WIDGETS.mailGoa, () => addMailGoaWidget(settings)),
     ]));
 
     // ── Time & Calendar ──────────────────────────────────────
