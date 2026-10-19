@@ -69,7 +69,9 @@ export function buildStandardSettings(container, widget, settings, saveHandlers)
         const isFollowSystem = settings.get_boolean('follow-system-theme');
 
         colorSwitchRow = new Adw.SwitchRow({
-            title: isFollowSystem ? 'Custom Colors & Font (Disabled by System Theme)' : 'Custom Colors & Font',
+            title: isFollowSystem 
+                ? 'Custom Colors &amp; Font (Disabled by System Theme)' 
+                : 'Custom Colors &amp; Font',
             active: widget.overrideColors === true && !isFollowSystem,
             sensitive: !isFollowSystem,
         });
@@ -116,30 +118,42 @@ export function buildStandardSettings(container, widget, settings, saveHandlers)
         container.add(fgColorRow);
 
         // Betűtípus
+        
         const isNotesWidget = widget.type === 'notes';
         const fontRow = new Adw.ActionRow({
-            title: isNotesWidget ? 'Font & Size' : 'Font Family',
+            title: isNotesWidget ? 'Font &amp; Size' : 'Font Family',
         });
 
-        const currentFamily = widget.fontFamily || settings.get_string('global-font-family') || DEFAULT_FONT_FAMILY || 'Cantarell';
-        const fontDesc = createNormalizedFontDescription(currentFamily);
+        const rawFont = widget.fontFamily || settings.get_string('global-font-family') || DEFAULT_FONT_FAMILY || 'Cantarell';
+        const cleanFamily = rawFont.replace(/['"]/g, '').replace(/, sans-serif/i, '').trim() || 'Cantarell';
+
+        const fontDesc = Pango.FontDescription.from_string(cleanFamily);
+
         if (isNotesWidget) {
+            // Notes esetén explicit beállítjuk a numerikus Pango méretet:
             const currentSize = widget.fontSize || 14;
             fontDesc.set_size(Math.round(currentSize * Pango.SCALE));
         }
 
         if (Gtk.FontDialogButton && Gtk.FontDialog) {
             const fontDialog = new Gtk.FontDialog();
+            fontDialog.set_filter(null);
+
+            // Gtk.FontLevel egy enum: FAMILY = csak család, FONT = teljes (család + stílus + méret)
+            let fontLevel = 0;
+            if (Gtk.FontLevel) {
+                fontLevel = isNotesWidget ? Gtk.FontLevel.FONT : Gtk.FontLevel.FAMILY;
+            }
+
             fontBtn = new Gtk.FontDialogButton({
                 dialog: fontDialog,
-                font_desc: fontDesc,
                 valign: Gtk.Align.CENTER,
                 halign: Gtk.Align.CENTER,
                 use_size: isNotesWidget,
-                level: isNotesWidget
-                    ? (Gtk.FontLevel ? (Gtk.FontLevel.FAMILY | Gtk.FontLevel.SIZE) : 0)
-                    : (Gtk.FontLevel ? Gtk.FontLevel.FAMILY : 0),
+                level: fontLevel,
             });
+
+            fontBtn.set_font_desc(fontDesc);
         } else {
             fontBtn = new Gtk.FontButton({
                 valign: Gtk.Align.CENTER,
@@ -149,7 +163,8 @@ export function buildStandardSettings(container, widget, settings, saveHandlers)
             if (Gtk.FontChooserLevel) {
                 fontBtn.set_level(isNotesWidget
                     ? (Gtk.FontChooserLevel.FAMILY | Gtk.FontChooserLevel.SIZE)
-                    : Gtk.FontChooserLevel.FAMILY);
+                    : Gtk.FontChooserLevel.FAMILY
+                );
             }
             fontBtn.set_font(fontDesc.to_string());
         }
@@ -157,6 +172,8 @@ export function buildStandardSettings(container, widget, settings, saveHandlers)
         fontRow.add_suffix(fontBtn);
         fontRow.set_activatable_widget(fontBtn);
         container.add(fontRow);
+
+
 
         // Érzékenység szinkronizálás
         const syncColorSensitivity = () => {
@@ -209,16 +226,30 @@ export function buildStandardSettings(container, widget, settings, saveHandlers)
             target.bgOpacity = Math.round(bgOpacityScale.get_value());
             target.fgColor = selectedFgColor;
 
-            const desc = fontBtn.get_font_desc ? fontBtn.get_font_desc() : Pango.FontDescription.from_string(fontBtn.get_font());
+            // Betű és méret lekérése
+            let desc = null;
+            if (typeof fontBtn.get_font_desc === 'function') {
+                desc = fontBtn.get_font_desc();
+            } else if (typeof fontBtn.get_font === 'function') {
+                const fontStr = fontBtn.get_font();
+                if (fontStr) desc = Pango.FontDescription.from_string(fontStr);
+            }
+
             if (desc) {
                 const family = desc.get_family();
                 if (family) {
                     target.fontFamily = family;
                 }
-                if (widget.type === 'notes') {
-                    const size = desc.get_size();
-                    if (size > 0) {
-                        target.fontSize = Math.round(desc.get_size_is_absolute() ? size : size / Pango.SCALE);
+
+                // Biztosra megyünk: ha a widget típusa notes VAGY a felületen engedélyezve volt a méret
+                const isNotes = widget.type === 'notes' || widget.type === 'quickNotes' || widget.type === 'quick-notes';
+                if (isNotes) {
+                    const rawSize = desc.get_size();
+                    if (rawSize > 0) {
+                        const calculatedSize = desc.get_size_is_absolute()
+                            ? Math.round(rawSize)
+                            : Math.round(rawSize / Pango.SCALE);
+                        target.fontSize = calculatedSize;
                     }
                 } else {
                     delete target.fontSize;

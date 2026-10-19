@@ -236,8 +236,12 @@ export function createNotesNode(config, width, height, xPosition, yPosition) {
     container.add_child(contentBox);
 
     function applyScale(scale) {
+        // Ha a felhasználó explicit beállított egy méretet, azt használjuk, 
+        // és nem skálázzuk le a widget alapméreténél (csak ha extrém pici lenne):
         const titleFontSize = Math.max(MIN_FONT_SIZE, Math.round(baseTitleSize * scale));
-        const contentFontSize = Math.max(MIN_FONT_SIZE, Math.round(baseContentSize * scale));
+        
+        // KÖZVETLENÜL a beállított méret, nem szorozzuk le a 0.6-os szorzóval:
+        const contentFontSize = Math.max(MIN_FONT_SIZE, Math.round(baseContentSize));
         const iconSize = Math.max(MIN_ICON_SIZE, Math.round(BASE_ICON_SIZE * scale));
 
         titleLabel.set_style(`${fontCss}color: ${textColor}; font-size: ${titleFontSize}px; opacity: ${SECONDARY_OPACITY};`);
