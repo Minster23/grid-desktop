@@ -62,7 +62,7 @@ const DESKTOP_PREVIEW_SIZE_PX = 120;
 const DESKTOP_CARD_HEIGHT_PX = 240;
 const CARDS_PER_ROW = 3;
 const CLAMP_MAXIMUM_SIZE = 1400;
-const CLAMP_TIGHTENING_THRESHOLD = 480;
+
 
 function escapeMarkup(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -85,13 +85,13 @@ function buildPreviewArea(extensionPath, thumbnail, previewSize, fallbackIconNam
         picture.set_valign(Gtk.Align.FILL);
         picture.set_hexpand(true);
         picture.set_vexpand(true);
-        picture.set_margin_top(2);
-        picture.set_margin_bottom(2);
+        picture.set_margin_top(4);
+        picture.set_margin_bottom(4);
         previewArea.append(picture);
     } else if (fallbackIconName) {
         const icon = new Gtk.Image({
             icon_name: fallbackIconName,
-            pixel_size: 72,
+            pixel_size: 64,
             halign: Gtk.Align.CENTER,
             valign: Gtk.Align.CENTER,
         });
@@ -101,71 +101,73 @@ function buildPreviewArea(extensionPath, thumbnail, previewSize, fallbackIconNam
     return previewArea;
 }
 
-function buildTextLabels(title, description) {
-    const safeTitle = escapeMarkup(title);
-    const safeDesc = escapeMarkup(description);
-
-    const titleLabel = new Gtk.Label({ xalign: 0, hexpand: true });
-    titleLabel.set_markup(`<b>${safeTitle}</b>`);
-
-    const descLabel = new Gtk.Label({
-        xalign: 0, hexpand: true, wrap: true,
-        wrap_mode: Pango.WrapMode.WORD,
-        max_width_chars: 24,
-    });
-    descLabel.set_markup(`<span size='small' alpha='65%'>${safeDesc}</span>`);
-
-    return { titleLabel, descLabel };
-}
-
 function createDesktopWidgetCard(extensionPath, widgetEntry, onAddClick) {
-    const { title, description, gridSize, thumbnail } = widgetEntry;
+    const { title, description, gridSize, thumbnail, fallbackIconName } = widgetEntry;
 
     const card = new Gtk.Box({
         orientation: Gtk.Orientation.VERTICAL,
-        spacing: 4,
+        spacing: 6,
         css_classes: ['card'],
-        margin_top: 6,
-        margin_bottom: 6,
-        margin_start: 6,
-        margin_end: 6,
-        baseline_position: Gtk.BaselinePosition.CENTER,
+        margin_top: 4,
+        margin_bottom: 4,
+        margin_start: 4,
+        margin_end: 4,
     });
     card.set_size_request(-1, DESKTOP_CARD_HEIGHT_PX);
 
-    // Preview area
-    card.append(buildPreviewArea(extensionPath, thumbnail, DESKTOP_PREVIEW_SIZE_PX));
+    // 1. Preview
+    card.append(buildPreviewArea(extensionPath, thumbnail, DESKTOP_PREVIEW_SIZE_PX, fallbackIconName));
 
-    // Text block
+    // 2. Szöveges leírás
     const textBox = new Gtk.Box({
         orientation: Gtk.Orientation.VERTICAL,
-        spacing: 1,
+        spacing: 2,
         margin_start: 12,
         margin_end: 12,
+    });
+
+    const titleLabel = new Gtk.Label({
+        label: title,
+        xalign: 0,
+        hexpand: true,
+        css_classes: ['heading'],
+        ellipsize: Pango.EllipsizeMode.END,
+    });
+
+    const descLabel = new Gtk.Label({
+        label: description,
+        xalign: 0,
+        hexpand: true,
+        wrap: true,
+        wrap_mode: Pango.WrapMode.WORD,
+        lines: 2,
+        ellipsize: Pango.EllipsizeMode.END,
+        css_classes: ['dim-label', 'caption'],
+    });
+
+    const sizeLabel = new Gtk.Label({
+        label: gridSize,
+        xalign: 0,
+        hexpand: true,
+        css_classes: ['dim-label', 'caption'],
         margin_top: 2,
     });
 
-    const { titleLabel, descLabel } = buildTextLabels(title, description);
     textBox.append(titleLabel);
     textBox.append(descLabel);
-
-    // Grid size badge
-    const sizeLabel = new Gtk.Label({ xalign: 0, hexpand: true });
-    sizeLabel.set_markup(`<span size='x-small' alpha='40%'>${gridSize}</span>`);
     textBox.append(sizeLabel);
-
     card.append(textBox);
 
-    // Add button
+    // 3. Add gomb
     const addButton = new Gtk.Button({
         label: 'Add',
         css_classes: ['suggested-action', 'pill'],
         margin_start: 12,
         margin_end: 12,
-        margin_bottom: 10,
+        margin_bottom: 12,
+        margin_top: 4,
         valign: Gtk.Align.END,
         halign: Gtk.Align.FILL,
-        vexpand: true,
     });
     addButton.connect('clicked', onAddClick);
     card.append(addButton);
@@ -173,14 +175,12 @@ function createDesktopWidgetCard(extensionPath, widgetEntry, onAddClick) {
     return card;
 }
 
-
 function createCategoryGroup(title, cards) {
-    const safeTitle = escapeMarkup(title);
-    const group = new Adw.PreferencesGroup({ title: safeTitle });
+    const group = new Adw.PreferencesGroup({ title: escapeMarkup(title) });
 
     const flowBox = new Gtk.FlowBox({
-        column_spacing: 10,
-        row_spacing: 10,
+        column_spacing: 12,
+        row_spacing: 12,
         homogeneous: true,
         selection_mode: Gtk.SelectionMode.NONE,
         activate_on_single_click: false,
@@ -188,21 +188,12 @@ function createCategoryGroup(title, cards) {
         min_children_per_line: CARDS_PER_ROW,
         halign: Gtk.Align.FILL,
         valign: Gtk.Align.START,
-        margin_top: 4,
-        margin_bottom: 4,
-        margin_start: 4,
-        margin_end: 4,
+        margin_top: 6,
+        margin_bottom: 6,
     });
 
     cards.forEach(card => flowBox.append(card));
-
-    const clamp = new Adw.Clamp({
-        maximum_size: CLAMP_MAXIMUM_SIZE,
-        tightening_threshold: CLAMP_TIGHTENING_THRESHOLD,
-        child: flowBox,
-    });
-
-    group.add(clamp);
+    group.add(flowBox);
     return group;
 }
 
@@ -221,7 +212,6 @@ export function buildStorePage(window, settings, extensionPath) {
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS[STORE_CATEGORIES.weather[0]], () => addWeather(3, 3, 'standard')),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS[STORE_CATEGORIES.weather[1]], () => addWeather(3, 3, 'simple')),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS[STORE_CATEGORIES.weather[2]], () => addWeather(6, 4, 'forecast')),
-        
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.weatherBars, () => addWeatherBarsWidget(settings, settings.get_string('weather-city'), 6, 6)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.weatherCards, () => addWeatherCardsWidget(settings, settings.get_string('weather-city'), 3, 3)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.sunScheduleWidget, () => openAddSunScheduleDialog(window, settings)),
@@ -232,7 +222,6 @@ export function buildStorePage(window, settings, extensionPath) {
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS[STORE_CATEGORIES.music[0]], () => addMusicWidget(settings, 4, 4)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS[STORE_CATEGORIES.music[1]], () => addMusicWidget(settings, 8, 4)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS[STORE_CATEGORIES.media[0]], () => openAddImageDialog(window, settings)),
- 
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS[STORE_CATEGORIES.media[1]], () => openAddSlideshowDialog(window, settings)),
     ]));
 
@@ -241,19 +230,15 @@ export function buildStorePage(window, settings, extensionPath) {
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.systemDashboard, () => addSystemDashboardWidget(settings, 4, 4)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.systemMonitor, () => addCpuRamWidget(settings, 4, 2)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.storageBar, () => addStorageBarWidget(settings)),
-        
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.resourceWheel, () => addResourceWheelWidget(settings, 'cpu', 5, 4)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.systemInfo, () => addSystemInfoWidget(settings, 'cpu', 2, 2)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.networkSpeed, () => addNetworkSpeedWidget(settings, 3, 2)),
-        
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.pingMonitor, () => addPingWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.quickToggles, () => addQuickTogglesWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.powerToggles, () => addPowerTogglesWidget(settings)),
-
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.powerProfiles, () => addPowerProfilesWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.batteryStatus, () => addBatteryStatusWidget(settings, 4, 3)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.audioOutput, () => addAudioOutputWidget(settings)),
-        
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.bluetoothDevices, () => addBluetoothDevicesWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.controlsSliders, () => addControlsSlidersWidget(settings)),
     ]));
@@ -263,7 +248,6 @@ export function buildStorePage(window, settings, extensionPath) {
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.pomodoroTimer, () => addPomodoroWidget(settings, 4, 4)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.pomodoroFocus, () => addPomodoroFocusWidget(settings, 4, 2)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.todoWidget, () => addTodoWidget(settings)),
-        
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.quickNotes, () => addNotesWidget(settings, 4, 4)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.clipboardHistory, () => addClipboardWidget(settings, 4, 4)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.appLauncher, () => openAddAppLauncherDialog(window, settings)),
@@ -274,11 +258,9 @@ export function buildStorePage(window, settings, extensionPath) {
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS[STORE_CATEGORIES.time[0]], () => addTimeWidget(settings, 3, 2, 'digital')),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.analogClock, () => addAnalogClockWidget(settings, 'basic', 3, 3)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.worldClock, () => openAddWorldClockDialog(window, settings)),
-        
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.worldAnalog, () => openAddWorldAnalogDialog(window, settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.calendarWidget, () => addCalendarWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.calendarGrid, () => addCalendarGridWidget(settings)),
-       
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.timer, () => addTimerWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.countdown, () => openAddCountdownDialog(window, settings)), 
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.stopwatch, () => addStopWatchWidget(settings)),
@@ -289,21 +271,17 @@ export function buildStorePage(window, settings, extensionPath) {
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.currencyTracker, () => addCurrencyTrackerWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.cryptoWidget, () => addCryptoWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.githubWidget, () => openAddGithubDialog(window, settings)),
-
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.habitTracker, () => addHabitTrackerWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.watermind, () => openAddWatermindDialog(window, settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.moodWidget, () => addMoodWidget(settings)),
-        
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.screenTimeWidget, () => addScreenTimeWidget(settings)),    
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.todayHistory, () => addTodayHistoryWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.rssHeadlinesWidget, () => openAddRssHeadlinesDialog(window, settings)),
-        
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.quotesWidget, () => addQuotesWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.calendarTasks, () => addCalendarTasksWidget(settings)),
-
     ]));
 
-    // Raise PreferencesPage's internal ~600px clamp so the grid grows with the window.
+    // Clamp tágítása, hogy széles ablaknál kényelmesen elférjen a 3 oszlop
     const stack = [page];
     while (stack.length > 0) {
         const widget = stack.pop();
