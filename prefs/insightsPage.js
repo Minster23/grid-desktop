@@ -131,14 +131,21 @@ function filterByRange(dates, rangeIndex) {
     return dates.filter(d => d >= cutoff);
 }
 
-function buildEmptyState(iconName, title, description) {
-    const page = new Adw.StatusPage({
-        icon_name: iconName,
-        title: title,
-        description: description,
+function buildEmptyStateRow(iconName, title, description) {
+    const row = new Adw.ActionRow({
+        title,
+        subtitle: description,
+        activatable: false,
     });
-    page.add_css_class('compact');
-    return page;
+    const icon = new Gtk.Image({
+        icon_name: iconName,
+        pixel_size: 32,
+        valign: Gtk.Align.CENTER,
+        margin_end: 6,
+        css_classes: ['dim-label'],
+    });
+    row.add_prefix(icon);
+    return row;
 }
 
 function buildDayNavRow(title) {
@@ -226,6 +233,14 @@ export function buildInsightsPage(settings) {
         title: 'Screen Time',
         description: 'Overview of your desktop usage across the selected period.',
     });
+
+    const stEmptyRow = buildEmptyStateRow(
+        'preferences-system-time-symbolic',
+        'No Screen Time Data Yet',
+        'Screen time tracking will appear here once the Screen Time widget is active on your desktop.'
+    );
+    stSummaryGroup.add(stEmptyRow);
+
     const stTotalRow = new Adw.ActionRow({ title: 'Total Screen Time' });
     const stAvgRow = new Adw.ActionRow({ title: 'Daily Average' });
     const stTopAppRow = new Adw.ActionRow({ title: 'Most Used App' });
@@ -259,15 +274,6 @@ export function buildInsightsPage(settings) {
     });
     stSummaryGroup.add(clearStBtn);
     page.add(stSummaryGroup);
-
-    const stEmptyBox = buildEmptyState(
-        'preferences-system-time-symbolic',
-        'No Screen Time Data Yet',
-        'Screen time tracking will appear here once the Screen Time widget is active on your desktop.'
-    );
-    const stEmptyGroup = new Adw.PreferencesGroup();
-    stEmptyGroup.add(stEmptyBox);
-    page.add(stEmptyGroup);
 
     // 3. DAY DETAIL (Screen time)
     const stDayGroup = new Adw.PreferencesGroup({
@@ -311,6 +317,14 @@ export function buildInsightsPage(settings) {
         title: 'Mood',
         description: 'Your emotional patterns over time.',
     });
+
+    const moodEmptyRow = buildEmptyStateRow(
+        'face-smile-big-symbolic',
+        'No Mood Data Yet',
+        'Log your first mood in the Mood Logger widget to start tracking emotional patterns.'
+    );
+    moodSummaryGroup.add(moodEmptyRow);
+
     const moodDaysRow = new Adw.ActionRow({ title: 'Days Logged' });
     const moodAvgRow = new Adw.ActionRow({ title: 'Average Mood' });
     const moodBestWeekRow = new Adw.ActionRow({ title: 'Best Week' });
@@ -325,14 +339,6 @@ export function buildInsightsPage(settings) {
     moodSummaryGroup.add(moodWorstMonthRow);
     page.add(moodSummaryGroup);
 
-    const moodEmptyBox = buildEmptyState(
-        'face-smile-big-symbolic',
-        'No Mood Data Yet',
-        'Log your first mood in the Mood Logger widget to start tracking how you feel.'
-    );
-    const moodEmptyGroup = new Adw.PreferencesGroup();
-    moodEmptyGroup.add(moodEmptyBox);
-    page.add(moodEmptyGroup);
 
     // 5. MOOD DAY DETAIL
     const moodDayGroup = new Adw.PreferencesGroup({
@@ -490,15 +496,21 @@ export function buildInsightsPage(settings) {
 
     function refreshStSummary() {
         const hasData = stAvailableDates.length > 0;
-        stDaysRow.set_subtitle(hasData ? `${stAvailableDates.length}` : '0');
+
+        stEmptyRow.set_visible(!hasData);
+        stDaysRow.set_visible(hasData);
+        stTotalRow.set_visible(hasData);
+        stAvgRow.set_visible(hasData);
+        stTopAppRow.set_visible(hasData);
+        stBestRow.set_visible(hasData);
+        clearStBtn.set_visible(hasData);
 
         if (!hasData) {
-            stTotalRow.set_subtitle('No data yet');
-            stAvgRow.set_subtitle('No data yet');
-            stTopAppRow.set_subtitle('No data yet');
-            stBestRow.set_subtitle('No data yet');
             return;
         }
+
+        stDaysRow.set_subtitle(hasData ? `${stAvailableDates.length}` : '0');
+
         let grandTotal = 0;
         const appAgg = {};
         let bestDay = { date: '', total: 0 };
@@ -561,16 +573,20 @@ export function buildInsightsPage(settings) {
 
     function refreshMoodSummary() {
         const hasData = moodAvailableDates.length > 0;
-        moodDaysRow.set_subtitle(hasData ? `${moodAvailableDates.length}` : '0');
+
+        moodEmptyRow.set_visible(!hasData);
+        moodDaysRow.set_visible(hasData);
+        moodAvgRow.set_visible(hasData);
+        moodBestWeekRow.set_visible(hasData);
+        moodWorstWeekRow.set_visible(hasData);
+        moodBestMonthRow.set_visible(hasData);
+        moodWorstMonthRow.set_visible(hasData);
 
         if (!hasData) {
-            moodAvgRow.set_subtitle('No data yet');
-            moodBestWeekRow.set_subtitle('No data yet');
-            moodWorstWeekRow.set_subtitle('No data yet');
-            moodBestMonthRow.set_subtitle('No data yet');
-            moodWorstMonthRow.set_subtitle('No data yet');
             return;
         }
+
+        moodDaysRow.set_subtitle(hasData ? `${moodAvailableDates.length}` : '0');
         loadDatesSync(moodAvailableDates);
         let totalLevel = 0;
         let loggedCount = 0;
@@ -682,7 +698,6 @@ export function buildInsightsPage(settings) {
         }
 
         const hasStData = stAvailableDates.length > 0;
-        stEmptyGroup.set_visible(!hasStData);
         stDayGroup.set_visible(hasStData);
 
         refreshStSummary();
@@ -698,7 +713,6 @@ export function buildInsightsPage(settings) {
         }
 
         const hasMoodData = moodAvailableDates.length > 0;
-        moodEmptyGroup.set_visible(!hasMoodData);
         moodDayGroup.set_visible(hasMoodData);
 
         refreshMoodSummary();
