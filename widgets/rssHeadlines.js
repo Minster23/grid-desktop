@@ -1,6 +1,7 @@
 import St from 'gi://St';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
+import Gio from 'gi://Gio';
 import Pango from 'gi://Pango';
 import { 
     cssColorToRgba, 
@@ -19,8 +20,7 @@ import { isActorDestroyed } from '../utils/actorLifecycle.js';
 
 const REF_WIDTH_PX = 220;
 const REF_HEIGHT_PX = 220;
-const ARTICLE_TITLE_MAX_CHARS = 140;
-const SNIPPET_MAX_CHARS = 400;
+const ARTICLE_TITLE_MAX_CHARS = 160;
 const SOURCE_NAME_MAX_CHARS = 30;
 const BORDER_ALPHA = 0.14;
 
@@ -87,50 +87,57 @@ export function createRssHeadlinesNode(config, width, height, xPosition, yPositi
         y_align: Clutter.ActorAlign.CENTER,
     });
 
+    const headerIcon = new St.Icon({
+        icon_name: 'feed-subscribe-symbolic',
+        y_align: Clutter.ActorAlign.CENTER,
+    });
+
     const sourceLabel = new St.Label({
         text: 'Feed',
         x_expand: true,
         y_align: Clutter.ActorAlign.CENTER,
     });
     sourceLabel.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+    
+    headerBox.add_child(headerIcon);
     headerBox.add_child(sourceLabel);
     mainLayout.add_child(headerBox);
 
-    // ── Törzs: ScrollView (pontosan mint a TodayHistory-ban) ──
-    const scrollView = new St.ScrollView({
-        hscrollbar_policy: St.PolicyType.NEVER,
-        vscrollbar_policy: St.PolicyType.AUTOMATIC,
-        overlay_scrollbars: true,
-        x_expand: true,
-        y_expand: true,
-    });
-    mainLayout.add_child(scrollView);
-
+    // ── Törzs: Kattintható doboz a hír címével (nincs ScrollView) ──
     const bodyBox = new St.BoxLayout({
         orientation: Clutter.Orientation.VERTICAL,
         x_expand: true,
+        y_expand: true,
+        reactive: true,
+        can_focus: true,
+        track_hover: true,
     });
-    scrollView.set_child(bodyBox);
+    mainLayout.add_child(bodyBox);
 
-    // Cím: BOLD
     const articleTitle = new St.Label({
         text: '',
         x_expand: true,
+        y_align: Clutter.ActorAlign.CENTER,
     });
     articleTitle.clutter_text.line_wrap = true;
     articleTitle.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-    articleTitle.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
+    articleTitle.clutter_text.ellipsize = Pango.EllipsizeMode.END;
     bodyBox.add_child(articleTitle);
 
-    // Leírás: Normál szöveg
-    const articleSnippet = new St.Label({
-        text: '',
-        x_expand: true,
+    // Kattintásra cikk megnyitása
+    bodyBox.connect('button-press-event', () => {
+        if (articles.length === 0) return Clutter.EVENT_PROPAGATE;
+        const currentArticle = articles[currentIndex % articles.length];
+        const link = currentArticle?.link || currentArticle?.url;
+        if (link) {
+            try {
+                Gio.AppInfo.launch_default_for_uri(link, null);
+            } catch (err) {
+                console.error('Failed to open feed URL:', err);
+            }
+        }
+        return Clutter.EVENT_STOP;
     });
-    articleSnippet.clutter_text.line_wrap = true;
-    articleSnippet.clutter_text.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-    articleSnippet.clutter_text.ellipsize = Pango.EllipsizeMode.NONE;
-    bodyBox.add_child(articleSnippet);
 
     // ── Lábléc ──
     const footerBox = new St.BoxLayout({
@@ -188,34 +195,22 @@ export function createRssHeadlinesNode(config, width, height, xPosition, yPositi
         });
     }
 
-    function resetScroll() {
-        try {
-            const adj = scrollView.vscroll?.adjustment || scrollView.vadjustment;
-            if (adj) adj.set_value(0);
-        } catch (e) {}
-    }
-
     function applyArticle() {
         if (!hasFeed) {
             sourceLabel.text = 'Feed';
             articleTitle.text = 'No feed configured';
-            articleSnippet.text = 'Add a feed URL through the widget settings.';
             timeLabel.text = '';
             renderDots();
-            resetScroll();
             return;
         }
         if (articles.length === 0) {
             articleTitle.text = 'Waiting for updates…';
-            articleSnippet.text = '';
             timeLabel.text = '';
             renderDots();
-            resetScroll();
             return;
         }
         const article = articles[currentIndex % articles.length];
         articleTitle.text = clampText(article.title, ARTICLE_TITLE_MAX_CHARS);
-        articleSnippet.text = clampText(article.summary, SNIPPET_MAX_CHARS);
         timeLabel.text = relativeTimeFromIso(article.dateIso);
 
         const visibleCount = Math.min(articles.length, MAX_VISIBLE_DOTS);
@@ -224,8 +219,6 @@ export function createRssHeadlinesNode(config, width, height, xPosition, yPositi
         } else {
             updateActiveDot();
         }
-
-        resetScroll();
     }
 
     function rotateArticle(step) {
@@ -276,28 +269,27 @@ export function createRssHeadlinesNode(config, width, height, xPosition, yPositi
         if (!currentWidth || !currentHeight) return;
         scale = Math.min(currentWidth / REF_WIDTH_PX, currentHeight / REF_HEIGHT_PX);
 
+        const iconSize = Math.max(12, Math.round(14 * scale));
+
         const padding = Math.max(8, Math.round(12 * scale));
         const titleFontSize = Math.max(9, Math.round(10.5 * scale));
-        const articleTitleSize = Math.max(12, Math.round(14 * scale));
-        const snippetSize = Math.max(11, Math.round(13 * scale));
+        const articleTitleSize = Math.max(1, Math.round(17 * scale));
         const footerFontSize = Math.max(8, Math.round(8.5 * scale));
 
         container.style = `${fontCss}background-color: ${bgColor}; border-radius: ${borderRadius}px;`
             + `border: 1px solid ${textRgba(BORDER_ALPHA)};`;
 
-        mainLayout.style = `padding: ${padding}px; spacing: ${Math.round(4 * scale)}px;`;
+        mainLayout.style = `padding: ${padding}px; spacing: ${Math.round(6 * scale)}px;`;
 
-        headerBox.style = `margin-bottom: ${Math.round(4 * scale)}px;`;
         sourceLabel.style = `${fontCss}color: ${textColor}; font-size: ${titleFontSize}px; font-weight: bold; letter-spacing: 0.5px; opacity: 0.9;`;
-
-        bodyBox.style = `spacing: ${Math.round(6 * scale)}px; padding-right: ${Math.round(4 * scale)}px;`;
         
-        // Félkövér cím, arányos méret
-        articleTitle.style = `${fontCss}color: ${textColor}; font-size: ${articleTitleSize}px; font-weight: bold; line-height: 1.25;`;
-        // Normál bekezdés szöveg
-        articleSnippet.style = `${fontCss}color: ${textColor}; font-size: ${snippetSize}px; line-height: 1.35; opacity: 0.88;`;
+        headerIcon.icon_size = iconSize;
+        headerIcon.style = `color: ${textColor}; margin-right: ${Math.round(5 * scale)}px; opacity: 0.85;`;
 
-        footerBox.style = `margin-top: ${Math.round(3 * scale)}px;`;
+        bodyBox.style = `padding: 0px 2px;`;
+        articleTitle.style = `${fontCss}color: ${textColor}; font-size: ${articleTitleSize}px;`;
+
+        footerBox.style = `margin-top: ${Math.round(2 * scale)}px;`;
         timeLabel.style = `${fontCss}color: ${textColor}; font-size: ${footerFontSize}px; opacity: 0.45;`;
 
         updateActiveDot();

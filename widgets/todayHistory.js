@@ -165,11 +165,13 @@ export function createTodayHistoryNode(config, width, height, xPosition, yPositi
         prevBtn.style = btnStyle;
         nextBtn.style = btnStyle;
 
-        bodyBox.style = `spacing: ${Math.round(4 * scale)}px; padding-right: ${Math.round(4 * scale)}px;`;
+        const rightPad = Math.max(12, Math.round(14 * scale));
+        bodyBox.style = `spacing: ${Math.round(4 * scale)}px; padding-right: ${rightPad}px;`;
+
         yearPill.style = `${fontCss}font-size: ${Math.max(9, Math.round(10 * scale))}px; font-weight: bold; padding: 1px 6px; border-radius: 4px; background-color: #fed049; color: #1e1e24; margin-bottom: 2px;`;
         
-        // Optimális, arányos méret (13.5 * scale), szellősebb sormagassággal
-        descLabel.style = `${fontCss}color: ${textColor}; font-size: ${Math.max(11, Math.round(14 * scale))}px; line-height: 1.3; opacity: 0.92;`;
+        const descFontSize = Math.max(1, Math.round(17 * scale));
+        descLabel.style = `${fontCss}color: ${textColor}; font-size: ${descFontSize}px; line-height: 1.35; opacity: 0.92;`;
 
         footerBox.style = `margin-top: ${Math.round(3 * scale)}px;`;
         footerLabel.style = `${fontCss}color: ${textColor}; font-size: ${Math.max(8, Math.round(8.5 * scale))}px; opacity: 0.45;`;
