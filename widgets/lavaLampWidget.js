@@ -20,7 +20,8 @@ const BORDER_ALPHA = 0.14;
 export function createLavaLampNode(config, width, height, xPosition, yPosition) {
     const textColor = resolveWidgetForegroundColor(config);
     const container = createWidgetContainer(config, width, height, xPosition, yPosition);
-    container.style += ` border: 1px solid ${cssColorToRgba(textColor, BORDER_ALPHA)};`;
+    
+    container.style += ' background-color: transparent; border: none; box-shadow: none;';
 
     const themeKey = config.lavaTheme || 'classic';
     const theme = LAVA_THEMES[themeKey] || LAVA_THEMES.classic;
@@ -91,15 +92,23 @@ export function createLavaLampNode(config, width, height, xPosition, yPosition) 
                     <stop offset="0%" stop-color="${glowColorHex}" stop-opacity="0.45" />
                     <stop offset="70%" stop-color="${glowColorHex}" stop-opacity="0.0" />
                 </linearGradient>
+
+                <!-- Lekerekített vágómaszk a widget arányaihoz (rx="24" a 200x400-as viewBox-ban megfelel kb. 12-14px valós rádiusznak) -->
+                <clipPath id="roundedClip">
+                    <rect width="200" height="400" rx="24" ry="24" />
+                </clipPath>
             </defs>
 
-            <!-- Háttér és alsó fűtőszál meleg derítése -->
-            <rect width="200" height="400" fill="${bgColorHex}" />
-            <rect width="200" height="400" fill="url(#bgGlow)" />
+            <!-- A teljes tartalmat maszkoljuk a lekerekített formára -->
+            <g clip-path="url(#roundedClip)">
+                <!-- Háttér és alsó fényszál meleg derítése -->
+                <rect width="200" height="400" fill="${bgColorHex}" />
+                <rect width="200" height="400" fill="url(#bgGlow)" />
 
-            <!-- Morfolódó láva réteg -->
-            <g filter="url(#goo)">
-                ${circlesSvg}
+                <!-- Morfolódó láva réteg -->
+                <g filter="url(#goo)">
+                    ${circlesSvg}
+                </g>
             </g>
         </svg>
         `;
