@@ -23,6 +23,7 @@ import {
     buildHistoryTrackerSettings,
     buildStorageBarSettings,
     buildWatermindSettings,
+    buildLavaLampSettings
 } from './widgetSettings.js';
 
 export function buildWidgetEditPanel(parentWindow, widget, settings, onSavedCallback) {
@@ -109,6 +110,9 @@ export function buildWidgetEditPanel(parentWindow, widget, settings, onSavedCall
             break;
         case 'watermind':
             buildWatermindSettings(group, widget, saveHandlers);
+            break;
+        case 'lavaLamp':
+            buildLavaLampSettings(group, widget, saveHandlers);
             break;
     }
 

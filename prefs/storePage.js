@@ -41,7 +41,8 @@ import {
     addWorldAnalogWidget,
     addCalendarTasksWidget,
     addBluetoothDevicesWidget,
-    addMailGoaWidget
+    addMailGoaWidget,
+    addLavaLampWidget
 } from './widgetAdders.js';
 
 import {
@@ -281,6 +282,7 @@ export function buildStorePage(window, settings, extensionPath) {
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.rssHeadlinesWidget, () => openAddRssHeadlinesDialog(window, settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.quotesWidget, () => addQuotesWidget(settings)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.calendarTasks, () => addCalendarTasksWidget(settings)),
+        createDesktopWidgetCard(extensionPath, STORE_WIDGETS.lavaLamp, () => addLavaLampWidget(settings)),
     ]));
 
     // Clamp tágítása, hogy széles ablaknál kényelmesen elférjen a 3 oszlop

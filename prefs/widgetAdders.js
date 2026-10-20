@@ -307,3 +307,7 @@ export function addBluetoothDevicesWidget(settings, width = 4, height = 4) {
 export function addMailGoaWidget(settings, width = 2, height = 2) {
     addWidget(settings, { id: nextWidgetId(settings, 'mailGoa'), type: 'mailGoa' }, width, height);
 }
+
+export function addLavaLampWidget(settings, width = 4, height = 8) {
+    addWidget(settings, { id: nextWidgetId(settings, 'lavaLamp'), type: 'lavaLamp' }, width, height);
+}

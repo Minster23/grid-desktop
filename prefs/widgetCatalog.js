@@ -1,4 +1,5 @@
 import { isWideMusicLayout } from '../utils/widgetUtils.js';
+import { LAVA_THEMES } from '../utils/lavaThemes.js';
 
 export const STORE_WIDGETS = Object.freeze({
     weatherStandard: {
@@ -359,6 +360,15 @@ export const STORE_WIDGETS = Object.freeze({
         thumbnail: 'system-utils/mailGoa.svg',
         fallbackIconName: 'mail-unread-symbolic',
     },
+    lavaLamp: {
+        title: 'Lava Lamp ',
+        description: 'Ambient lava lamp with fluid wax metaball morphing.',
+        gridSize: '4x8',
+        thumbnail: 'lava/lavaLamp.svg',
+        customIcon: 'icons/lavalamp-symbolic.svg',
+        fallbackIconName: 'weather-clear-symbolicc',
+    },
+
 });
 
 export const STORE_CATEGORIES = Object.freeze({
@@ -398,7 +408,8 @@ export const STORE_CATEGORIES = Object.freeze({
         'calendarTasks',
         'watermind',
         'bluetoothDevices',
-        'mailGoa'
+        'mailGoa',
+        'lavaLamp'
     ],
 });
 
@@ -525,7 +536,9 @@ function getStoreWidgetKey(widget) {
         case 'bluetoothDevices':
             return 'bluetoothDevices';
         case 'mailGoa':
-            return 'mailGoa'
+            return 'mailGoa';
+        case 'lavaLamp':
+            return 'lavaLamp';
         default:
             return null;
     }
@@ -599,6 +612,11 @@ export function getWidgetDetailText(widget) {
         }
         case 'watermind':
             return `Goal: ${widget.hourlyTargetMl || 250} ml/h (${widget.intervalMinutes || 60} min)`;
+        case 'lavaLamp': {
+            const themeKey = widget.lavaTheme || 'classic';
+            const themeName = LAVA_THEMES[themeKey]?.name || themeKey.toUpperCase();
+            return `Theme: ${themeName}`;
+        }
         default:
             return '';
     }

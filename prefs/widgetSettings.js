@@ -13,6 +13,7 @@ import { createAppSelectionControls } from './appSelection.js';
 import { buildCaptionControls } from './captionControls.js';
 import { getConnectedMonitorsCount, buildMonitorEntries } from './displayUtils.js';
 import { DEFAULT_WORLD_CLOCK_CITIES, MIN_SLIDESHOW_INTERVAL_SEC, MAX_SLIDESHOW_INTERVAL_SEC, STEP_SLIDESHOW_INTERVAL_SEC, DEFAULT_SLIDESHOW_INTERVAL_SEC } from './widgetConstants.js';
+import { LAVA_THEMES } from '../utils/lavaThemes.js';
 
 const MIN_POMODORO_MINUTES = 1;
 const MAX_POMODORO_MINUTES = 120;
@@ -966,5 +967,25 @@ export function buildWatermindSettings(container, widget, saveHandlers) {
     saveHandlers.push((target) => {
         target.hourlyTargetMl = Math.round(targetRow.get_value());
         target.intervalMinutes = Math.round(intervalRow.get_value());
+    });
+}
+
+export function buildLavaLampSettings(container, widget, saveHandlers) {
+    const themeKeys = Object.keys(LAVA_THEMES);
+    const themeNames = themeKeys.map(k => LAVA_THEMES[k].name);
+
+    const themeRow = new Adw.ComboRow({
+        title: 'Color Theme',
+        subtitle: 'Select wax and glow palette',
+        model: new Gtk.StringList({ strings: themeNames }),
+    });
+
+    const currentTheme = widget.lavaTheme || 'classic';
+    const themeIdx = themeKeys.indexOf(currentTheme);
+    themeRow.set_selected(themeIdx >= 0 ? themeIdx : 0);
+    container.add(themeRow);
+
+    saveHandlers.push((target) => {
+        target.lavaTheme = themeKeys[themeRow.get_selected()] || 'classic';
     });
 }

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+  <!-- Top Cap -->
+  <path d="M5.5 1h5l-.5 1.5h-4z"/>
+  <!-- Glass Vessel Contour -->
+  <path d="M5.5 3c-.3 0-.5.2-.5.5l-.5 4.8c-.3 1.2.2 2.2.7 2.7h5.6c.5-.5 1-1.5.7-2.7L11 3.5c0-.3-.2-.5-.5-.5h-5zm1 1.2h3c.1.7.3 2.1.4 3.4-.6-.2-1.3 0-1.7.5-.4-.4-1.1-.6-1.7-.3.2-1.3.4-2.8.4-3.6z"/>
+  <!-- Bottom Heated Mass -->
+  <ellipse cx="8" cy="10.2" rx="2.2" ry=".7"/>
+  <!-- Rising Wax Droplets -->
+  <circle cx="8" cy="5.8" r="1.1"/>
+  <circle cx="7" cy="8" r=".75"/>
+  <circle cx="9.2" cy="7.6" r=".6"/>
+  <!-- Pedestal Base -->
+  <path d="M4.8 11.5l-.8 3.5h8l-.8-3.5H4.8z"/>
+</svg>

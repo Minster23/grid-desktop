@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <!-- Gooey összekötő filter -->
+    <filter id="thumbGoo" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur" />
+      <feColorMatrix in="blur" values="1 0 0 0 0  
+                0 1 0 0 0  
+                0 0 1 0 0  
+                0 0 0 18 -7" result="goo" />
+      <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+    </filter>
+
+    <!-- Folyadék háttér és alsó izzás -->
+    <linearGradient id="liquidGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#140505" />
+      <stop offset="70%" stop-color="#240702" />
+      <stop offset="100%" stop-color="#4a0f00" />
+    </linearGradient>
+
+    <!-- Fém lámpafej és talp átmenet -->
+    <linearGradient id="metalGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4a4d52" />
+      <stop offset="50%" stop-color="#8a8f98" />
+      <stop offset="100%" stop-color="#3b3e43" />
+    </linearGradient>
+
+    <!-- Folyadék tartály maszk -->
+    <clipPath id="glassClip">
+      <path d="M 48 24 L 80 24 Q 84 64 78 98 L 50 98 Q 44 64 48 24 Z" />
+    </clipPath>
+  </defs>
+
+  <!-- Külső keret / lekerekített kártya háttér -->
+  <rect x="8" y="8" width="112" height="112" rx="20" fill="#18181f" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+
+  <!-- Üvegtartály és lávatartalom (ClipPath alatt) -->
+  <g clip-path="url(#glassClip)">
+    <!-- Folyadék sötétje -->
+    <rect x="35" y="20" width="58" height="82" fill="url(#liquidGrad)" />
+
+    <!-- Lávacseppek a morfolódó Goo szűrővel -->
+    <g filter="url(#thumbGoo)">
+      <!-- Alsó forró massza -->
+      <ellipse cx="64" cy="98" rx="20" ry="12" fill="#ff5500" />
+      
+      <!-- Felfelé elnyúló alsó nyak -->
+      <circle cx="64" cy="84" r="8" fill="#ff5500" />
+      <circle cx="62" cy="74" r="7" fill="#ff5500" />
+
+      <!-- Felső elnyúlt csepp pár -->
+      <circle cx="65" cy="50" r="9" fill="#ff5500" />
+      <circle cx="63" cy="40" r="7.5" fill="#ff5500" />
+
+      <!-- Fenti massza a hűtő tetejénél -->
+      <ellipse cx="64" cy="24" rx="14" ry="7" fill="#ff5500" />
+    </g>
+
+    <!-- Üvegfény / csillanás a bal oldalon -->
+    <path d="M 50 26 Q 47 64 52 96" stroke="rgba(255,255,255,0.2)" stroke-width="2" fill="none" stroke-linecap="round" />
+  </g>
+
+  <!-- Láva üvegének vékony külső pereme -->
+  <path d="M 48 24 L 80 24 Q 84 64 78 98 L 50 98 Q 44 64 48 24 Z" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" />
+
+  <!-- Lámpa fém sapkája a tetején -->
+  <path d="M 46 25 L 82 25 L 75 14 L 53 14 Z" fill="url(#metalGrad)" />
+
+  <!-- Lámpa fém talpa az alján -->
+  <path d="M 49 97 L 79 97 L 85 114 L 43 114 Z" fill="url(#metalGrad)" />
+</svg>

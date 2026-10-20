@@ -68,6 +68,7 @@ export const MIN_WIDGET_SIZES = Object.freeze({
     'watermind': { minCols: 4, minRows: 4 },
     'bluetoothDevices': { minCols: 4, minRows: 4 },
     'mailGoa':  { minCols: 2, minRows: 2 },
+    'lavaLamp':  { minCols: 8, minRows: 4 },
 });
 
 /**
@@ -542,6 +543,7 @@ const SIZE_PRESETS = {
     'watermind': [[4, 4], [5, 5], [6, 6]],
     'bluetoothDevices': [[4, 4], [5, 5], [6, 6]],
     'mailGoa': [[2, 2], [3, 3], [4, 4]],
+    'lavaLamp': [[4, 8], [5, 10], [6, 12]],
 };
 
 export const FREE_FLOW_SIZE_TYPES = ['image', 'slideshow'];
