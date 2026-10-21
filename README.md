@@ -31,6 +31,7 @@ A high-performance desktop widget ecosystem and icon manager for GNOME Shell, po
 - **Weather Forecast**: Expanded layout featuring current conditions alongside an hourly forecast breakdown.
 - **Weather Daily Bars**: Multi-day extended forecast with visual temperature range bars.
 - **Solar Schedule**: Visual day/night curve showing real-time sun progression, sunrise, sunset, and remaining daylight hours.
+- **Moon**: Current moon phase and upcoming phases.
 - **Weather Cards**: Modular glance cards that can be placed independently to monitor a specific environmental metric with an optional trend chart:
   - UV Index
   - Humidity
@@ -99,6 +100,7 @@ A high-performance desktop widget ecosystem and icon manager for GNOME Shell, po
 - **Quick Notes**: Direct markdown sticky note scratchpad on the desktop canvas with an inline edit mode for notes and checklist items.
 - **Clipboard History**: Quick-access local clipboard manager showing recent copied text snippets for fast reference and reuse.
 - **App Launcher**: Compact desktop dock providing one-click launch access for up to 8 installed applications.
+- **Mail**: Displays unread emails across all connected GNOME Online Accounts.
 
 #### Time & Calendar
 *Precision desktop timekeeping, global clocks, countdowns, and schedule trackers.*
@@ -134,6 +136,7 @@ A high-performance desktop widget ecosystem and icon manager for GNOME Shell, po
 - **RSS Headlines**: Compact, auto-rotating news reader displaying article summaries and headlines from custom RSS feeds.
 - **Quotes**: Daily inspirational quotes from philosophers, programmers, and thinkers updated automatically.
 - **Calendar Tasks**: Aggregated daily agenda widget displaying today's scheduled events from synchronized calendars with custom category colors.
+- **LavaLamp**: Ambient decorative lamp with fluid wax metaball animations.
 
 ---
 
