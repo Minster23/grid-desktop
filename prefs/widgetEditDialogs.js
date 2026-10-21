@@ -23,7 +23,8 @@ import {
     buildHistoryTrackerSettings,
     buildStorageBarSettings,
     buildWatermindSettings,
-    buildLavaLampSettings
+    buildLavaLampSettings,
+    buildMoonSettings
 } from './widgetSettings.js';
 
 export function buildWidgetEditPanel(parentWindow, widget, settings, onSavedCallback) {
@@ -113,6 +114,9 @@ export function buildWidgetEditPanel(parentWindow, widget, settings, onSavedCall
             break;
         case 'lavaLamp':
             buildLavaLampSettings(group, widget, saveHandlers);
+            break;
+        case 'moon':
+            buildMoonSettings(group, widget, saveHandlers);
             break;
     }
 

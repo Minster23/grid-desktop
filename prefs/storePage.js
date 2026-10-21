@@ -56,6 +56,7 @@ import {
     openAddCountdownDialog,
     openAddWorldAnalogDialog,
     openAddWatermindDialog,
+    openAddMoonDialog
 } from './widgetAddDialogs.js';
 
 import { STORE_CATEGORIES, STORE_WIDGETS } from './widgetCatalog.js';
@@ -217,6 +218,7 @@ export function buildStorePage(window, settings, extensionPath) {
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.weatherBars, () => addWeatherBarsWidget(settings, settings.get_string('weather-city'), 6, 6)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.weatherCards, () => addWeatherCardsWidget(settings, settings.get_string('weather-city'), 3, 3)),
         createDesktopWidgetCard(extensionPath, STORE_WIDGETS.sunScheduleWidget, () => openAddSunScheduleDialog(window, settings)),
+        createDesktopWidgetCard(extensionPath, STORE_WIDGETS.moonWidget, () => openAddMoonDialog(window, settings)),
     ]));
 
     // ── Media ────────────────────────────────────────────────

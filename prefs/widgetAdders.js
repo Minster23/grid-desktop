@@ -311,3 +311,13 @@ export function addMailGoaWidget(settings, width = 2, height = 2) {
 export function addLavaLampWidget(settings, width = 4, height = 8) {
     addWidget(settings, { id: nextWidgetId(settings, 'lavaLamp'), type: 'lavaLamp' }, width, height);
 }
+
+export function addMoonWidget(settings, city, latitude, longitude, width = 6, height = 3) {
+    addWidget(settings, {
+        id: nextWidgetId(settings, 'moon'),
+        type: 'moon',
+        city,
+        latitude,
+        longitude,
+    }, width, height);
+}

@@ -1,5 +1,6 @@
 import { isWideMusicLayout } from '../utils/widgetUtils.js';
 import { LAVA_THEMES } from '../utils/lavaThemes.js';
+import { addMoonWidget } from './widgetAdders.js';
 
 export const STORE_WIDGETS = Object.freeze({
     weatherStandard: {
@@ -366,13 +367,20 @@ export const STORE_WIDGETS = Object.freeze({
         gridSize: '4x8',
         thumbnail: 'lava/lavaLamp.svg',
         customIcon: 'icons/lavalamp-symbolic.svg',
-        fallbackIconName: 'weather-clear-symbolicc',
+        fallbackIconName: 'weather-clear-symbolic',
     },
+    moonWidget:{
+        title: 'Moon',
+        description: 'Current moon phase and upcoming phases.',
+        gridSize: '6x3',
+        thumbnail: 'moon/moon.svg',
+        fallbackIconName: 'weather-clear-night-symbolic'
+    }
 
 });
 
 export const STORE_CATEGORIES = Object.freeze({
-    weather: ['weatherStandard', 'weatherMinimal', 'weatherForecast', 'weatherBars', 'sunScheduleWidget', 'weatherCards'],
+    weather: ['weatherStandard', 'weatherMinimal', 'weatherForecast', 'weatherBars', 'sunScheduleWidget', 'weatherCards', 'moonWidget'],
     music: ['musicPlayer', 'musicPlayerWide'],
     time: ['timeAndDate', 'analogClock', 'worldClock', 'calendarWidget', 'calendarGrid', 'countdown', 'timer', 'stopwatch', 'worldAnalog'],
     media: ['imageGif', 'imageSlideshow'],
@@ -539,6 +547,8 @@ function getStoreWidgetKey(widget) {
             return 'mailGoa';
         case 'lavaLamp':
             return 'lavaLamp';
+        case 'moon':
+            return 'moonWidget';
         default:
             return null;
     }
@@ -617,6 +627,8 @@ export function getWidgetDetailText(widget) {
             const themeName = LAVA_THEMES[themeKey]?.name || themeKey.toUpperCase();
             return `Theme: ${themeName}`;
         }
+        case 'moon':
+            return `Location: ${widget.city || 'Unknown'}`;
         default:
             return '';
     }

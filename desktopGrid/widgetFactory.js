@@ -52,6 +52,7 @@ import { createTodayHistoryNode } from '../widgets/todayHistory.js';
 import { createWatermindNode } from '../widgets/watermind.js';
 import { createMailGoaNode } from '../widgets/mailGoa.js';
 import { createLavaLampNode } from '../widgets/lavaLampWidget.js';
+import { createMoonNode } from '../widgets/moon.js';
 
 const weatherCreator = (data, w, h, x, y) => {
     const dynamicColor = data.dynamicColor !== undefined ? data.dynamicColor : (data.globalWeatherDynamicColor !== false);
@@ -115,6 +116,7 @@ const WIDGET_CREATORS = {
     'bluetoothDevices': (data, w, h, x, y) => createBluetoothDevicesNode(data, w, h, x, y),
     'mailGoa': (data, w, h, x, y) => createMailGoaNode(data, w, h, x, y),
     'lavaLamp': (data, w, h, x, y) => createLavaLampNode(data, w, h, x, y),
+    'moon': (data, w, h, x, y) => createMoonNode(data, w, h, x, y),
 };
 
 export function createWidgetNode(data, width, height, x, y) {

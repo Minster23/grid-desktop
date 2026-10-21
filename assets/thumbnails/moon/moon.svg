@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 156.4818 93"
+   width="156.4818"
+   height="93"
+   version="1.1"
+   id="svg15"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs5">
+    <!-- Maszk a dagadó holdhoz (76% megvilágítás) -->
+    <mask
+       id="moon-phase-mask">
+      <!-- Fekete alap: minden rejtve -->
+      <rect
+         x="0"
+         y="0"
+         width="120"
+         height="120"
+         fill="#000000"
+         id="rect1" />
+      <!-- Megvilágított oldal: fehér felület (jobb félkörív + balra domborodó terminátor) -->
+      <path
+         d="m 28,35 a 25,25 0 0 1 0,50 C 15,85 15,35 28,35 Z"
+         fill="#ffffff"
+         id="path1" />
+    </mask>
+    <!-- Kráterek és textúra szimuláció a hold felületén -->
+    <radialGradient
+       id="moon-base"
+       cx="25.699999"
+       cy="57.700001"
+       r="25.300001"
+       fx="25.699999"
+       fy="57.700001"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#ffffff"
+         id="stop1" />
+      <stop
+         offset="70%"
+         stop-color="#d6d9df"
+         id="stop2" />
+      <stop
+         offset="100%"
+         stop-color="#9ea3af"
+         id="stop3" />
+    </radialGradient>
+    <!-- Halvány háttér kártya felület -->
+    <linearGradient
+       id="card-bg"
+       x1="3.1751943"
+       y1="14.880979"
+       x2="105.68861"
+       y2="117.39439"
+       gradientTransform="matrix(1.5285026,0,0,0.90545856,-4.9584049,-13.384937)"
+       gradientUnits="userSpaceOnUse">
+      <stop
+         offset="0%"
+         stop-color="#2d222e"
+         id="stop4" />
+      <stop
+         offset="100%"
+         stop-color="#1f1821"
+         id="stop5" />
+    </linearGradient>
+  </defs>
+  <!-- Kártya alap kontúr és háttér -->
+  <rect
+     x="0.58821493"
+     y="0.58821487"
+     width="155.30536"
+     height="91.82357"
+     rx="13.866549"
+     fill="url(#card-bg)"
+     stroke="#ffffff"
+     stroke-opacity="0.12"
+     stroke-width="1.17643"
+     id="rect5"
+     style="fill:url(#card-bg)" />
+  <!-- HOLD MEGJELENÍTÉSE (Bal oldal) -->
+  <g
+     transform="translate(12.32029,-13.500002)"
+     id="g9">
+    <!-- 1. Árnyékos korong (Földfény) -->
+    <circle
+       cx="28"
+       cy="60"
+       r="23"
+       fill="#ffffff"
+       fill-opacity="0.08"
+       id="circle5" />
+    <!-- 2. Megvilágított dagadó felület maszkolva -->
+    <g
+       mask="url(#moon-phase-mask)"
+       id="g8">
+      <!-- Hold fényes alapgolyó -->
+      <circle
+         cx="28"
+         cy="60"
+         r="23"
+         fill="url(#moon-base)"
+         id="circle6"
+         style="fill:url(#moon-base)" />
+      <!-- Mare és kráter részletek -->
+      <!-- Mare Serenitatis / Tranquillitatis -->
+      <path
+         d="m 32,50 c 5,3 4,12 -2,13 -5,-2 -2,-11 2,-13 z"
+         fill="#717682"
+         opacity="0.65"
+         id="path6" />
+      <path
+         d="m 33,62 c 5,3 4,10 -1,12 -4,-1 -3,-9 1,-12 z"
+         fill="#656a76"
+         opacity="0.6"
+         id="path7" />
+      <!-- Mare Imbrium része a terminátor mentén -->
+      <ellipse
+         cx="23"
+         cy="51"
+         rx="6"
+         ry="7"
+         fill="#7b808d"
+         opacity="0.55"
+         id="ellipse7" />
+      <ellipse
+         cx="21"
+         cy="67"
+         rx="5"
+         ry="6"
+         fill="#6d727e"
+         opacity="0.5"
+         id="ellipse8" />
+      <circle
+         cx="34"
+         cy="74"
+         r="2"
+         fill="#ffffff"
+         opacity="0.8"
+         id="circle8" />
+      <!-- Tycho fénysugarak -->
+    </g>
+    <!-- Nagyon finom külső perem -->
+    <circle
+       cx="28"
+       cy="60"
+       r="23"
+       fill="none"
+       stroke="#ffffff"
+       stroke-opacity="0.15"
+       stroke-width="0.75"
+       id="circle9" />
+  </g>
+  <!-- SZÖVEGES INFÓK (Jobb oldal) -->
+  <g
+     font-family="'-apple-system', BlinkMacSystemFont, Cantarell, 'Segoe UI', Roboto, sans-serif"
+     transform="translate(18.240894,-9.5)"
+     id="g15">
+    <!-- Helyszín -->
+    <text
+       x="60"
+       y="36"
+       font-size="6.5px"
+       fill="#ffffff"
+       opacity="0.55"
+       font-weight="500"
+       id="text9">Nyíregyháza</text>
+    <!-- Fázis név -->
+    <text
+       x="60"
+       y="47"
+       font-size="9px"
+       fill="#ffffff"
+       font-weight="bold"
+       id="text10">Waxing Moon</text>
+    <!-- Megvilágítás -->
+    <text
+       x="60"
+       y="56"
+       font-size="6.5px"
+       fill="#ffffff"
+       opacity="0.6"
+       id="text11">76% illuminance</text>
+    <!-- Elválasztó vonal -->
+    <line
+       x1="60"
+       y1="62"
+       x2="108"
+       y2="62"
+       stroke="#ffffff"
+       stroke-opacity="0.12"
+       stroke-width="0.8"
+       id="line11" />
+    <!-- Telihold sor -->
+    <text
+       x="60"
+       y="73"
+       font-size="6.5px"
+       fill="#ffffff"
+       opacity="0.55"
+       id="text12">Full moon:</text>
+    <text
+       x="112"
+       y="73"
+       font-size="6.5px"
+       fill="#ffffff"
+       font-weight="600"
+       text-anchor="end"
+       id="text13">10.26.</text>
+    <!-- Újhold sor -->
+    <text
+       x="60"
+       y="83"
+       font-size="6.5px"
+       fill="#ffffff"
+       opacity="0.55"
+       id="text14">New moon:</text>
+    <text
+       x="112"
+       y="83"
+       font-size="6.5px"
+       fill="#ffffff"
+       font-weight="600"
+       text-anchor="end"
+       id="text15">11.09.</text>
+  </g>
+</svg>

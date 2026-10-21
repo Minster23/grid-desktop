@@ -989,3 +989,22 @@ export function buildLavaLampSettings(container, widget, saveHandlers) {
         target.lavaTheme = themeKeys[themeRow.get_selected()] || 'classic';
     });
 }
+
+export function buildMoonSettings(container, widget, saveHandlers) {
+    const currentLocation = { name: widget.city || '' };
+    if (widget.latitude !== undefined && widget.longitude !== undefined) {
+        currentLocation.latitude = widget.latitude;
+        currentLocation.longitude = widget.longitude;
+    }
+
+    const locationPicker = buildOpenMeteoCitySearchRow(container, 'City Location', currentLocation);
+
+    saveHandlers.push((target) => {
+        const selectedLocation = locationPicker.getSelectedLocation();
+        if (selectedLocation && selectedLocation.name && selectedLocation.latitude !== undefined && selectedLocation.longitude !== undefined) {
+            target.city = selectedLocation.name;
+            target.latitude = selectedLocation.latitude;
+            target.longitude = selectedLocation.longitude;
+        }
+    });
+}

@@ -13,12 +13,14 @@ import {
     addAppLauncherWidget,
     addCountdownWidget,
     addWorldAnalogWidget,
+    addMoonWidget,
+    addWatermindWidget
 } from './widgetAdders.js';
 import { createAppSelectionControls } from './appSelection.js';
 import { createLiveCitySearchRow, buildOpenMeteoCitySearchRow } from './citySearch.js';
 import { buildCaptionRows } from './captionControls.js';
 import { DEFAULT_WORLD_CLOCK_CITIES, MIN_SLIDESHOW_INTERVAL_SEC, MAX_SLIDESHOW_INTERVAL_SEC, STEP_SLIDESHOW_INTERVAL_SEC, DEFAULT_SLIDESHOW_INTERVAL_SEC } from './widgetConstants.js';
-import { addWatermindWidget } from './widgetAdders.js';
+
 
 export { DEFAULT_WORLD_CLOCK_CITIES, MIN_SLIDESHOW_INTERVAL_SEC, MAX_SLIDESHOW_INTERVAL_SEC, STEP_SLIDESHOW_INTERVAL_SEC, DEFAULT_SLIDESHOW_INTERVAL_SEC } from './widgetConstants.js';
 
@@ -422,6 +424,32 @@ export function openAddWorldAnalogDialog(parentWindow, settings) {
     picker2 = createLiveCitySearchRow(box, 'City 2 (Top Right):', city2, 1);
     picker3 = createLiveCitySearchRow(box, 'City 3 (Bottom Left):', city3, 2);
     picker4 = createLiveCitySearchRow(box, 'City 4 (Bottom Right):', city4, 3);
+
+    group.add(box);
+    window.present();
+}
+
+
+export function openAddMoonDialog(parentWindow, settings) {
+    let locationPicker;
+
+    const { window, group } = createModernWidgetAddDialog(parentWindow, 'Configure Moon Widget', () => {
+        const location = locationPicker.getSelectedLocation();
+        if (location && location.name && location.latitude !== undefined && location.longitude !== undefined) {
+            addMoonWidget(settings, location.name, location.latitude, location.longitude);
+            return true;
+        }
+        return false;
+    });
+
+    const defaultLoc = {
+        name: settings.get_string('weather-city') || 'Budapest',
+        latitude: 47.498,
+        longitude: 19.039,
+    };
+
+    const box = new Gtk.Box({ orientation: Gtk.Orientation.VERTICAL, spacing: 12 });
+    locationPicker = buildOpenMeteoCitySearchRow(box, 'City Location:', defaultLoc, 0);
 
     group.add(box);
     window.present();
